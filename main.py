@@ -8,6 +8,8 @@ import argparse
 import logging
 import os
 import textwrap
+import json
+import traceback
 
 from dotenv import load_dotenv
 
@@ -35,7 +37,15 @@ log = logging.getLogger(__name__)
 def get_youtube_transcript(video_id: str) -> str:
     """Fetches the transcript of a YouTube video in English or French."""
     ytt_api = YouTubeTranscriptApi()
-    transcript_list = ytt_api.list(video_id)
+    try:
+        transcript_list = ytt_api.list(video_id)
+    except json.decoder.JSONDecodeError as e:
+        # getting a "Extra data: line 1 column 56651 (char 56650)"
+        # similar to https://github.com/jdepoix/youtube-transcript-api/issues/144
+        # on one specific (and private) video
+        log.debug(f"JSONDecodeError while getting transcripts list: {e}")
+        log.debug(f"Traceback: {traceback.format_exc()}")
+        return "Error: transcript list not found"
     # filter for transcripts, french first, otherwise english
     # note: youtube_transcript_api always chooses manually created transcripts over automatically created ones
     try:
@@ -46,8 +56,8 @@ def get_youtube_transcript(video_id: str) -> str:
     fetched_transcript = transcript.fetch()
 
     # Combine text
-    transcript_text = "\n".join([entry.text for entry in fetched_transcript])
-    textwrap.fill(transcript_text, width=80)
+    transcript_text = " ".join([entry.text for entry in fetched_transcript])
+    transcript_text = textwrap.fill(transcript_text, width=80)
     return transcript_text
 
 
@@ -57,11 +67,11 @@ def analyze_sentiment(text: str) -> str:
     polarity = blob.sentiment.polarity
 
     if polarity > 0.2:
-        return "Positive 😊"
+        return "Positive"
     elif polarity < -0.2:
-        return "Negative 😞"
+        return "Negative"
     else:
-        return "Neutral 😐"
+        return "Neutral"
 
 
 def categorize_topic(text: str, language: str) -> str | None:
@@ -252,6 +262,7 @@ def main():
 
     load_dotenv()  # declare your OPENAI_API_KEY in a .env file
     video_id = args.youtube_video_url.split("v=")[1]
+    log.debug(f"Video ID: {video_id}")
     transcript = get_youtube_transcript(video_id)
     # get video title
     # TODO: add error handling
@@ -266,7 +277,8 @@ def main():
         #     category = categorize_topic(transcript, args.language)
         #     keywords = extract_keywords(transcript, args.language)
         if args.transcript:
-            print(f"Transcript:\n{transcript}\n\nSentiment: {sentiment}")
+            print(f"Transcript:\n{transcript}\n\n")
+            print(f"Sentiment: {sentiment}")
             sys.exit(0)
         summary = summarize_transcript(transcript, args.language)
         if summary is None:
