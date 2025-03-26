@@ -1,3 +1,5 @@
+"""Script constants."""
+
 CATEGORIZE_PROMPT_EN = "Classify the following video transcript into one broad category (e.g., Technology, Business, Education, Science, Entertainment, Motivation, Health, News, etc.):\n\n"
 CATEGORIZE_PROMPT_FR = "Classifiez la transcription vidéo suivante dans une catégorie générale (par exemple, Technologie, Affaires, Éducation, Science, Divertissement, Motivation, Santé, Actualités, etc.):\n\n"
 EXTRACT_KEYWORDS_PROMPT_EN = "Extract the top 5 keywords from the following transcript:\n\n"
@@ -24,3 +26,5 @@ Fournir un résumé structuré.
 
 Transcription:
 """
+POLARITY_POSITIVE_THRESHOLD = 0.2
+POLARITY_NEGATIVE_THRESHOLD = -0.2
