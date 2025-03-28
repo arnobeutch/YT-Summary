@@ -1,5 +1,4 @@
 .env
 test_openai_api.py
 __pycache__/
-dump.html
-dump.zip
+results/*

@@ -1,4 +1,8 @@
-"""Get, format and analyze (sentiment) YouTube transcript."""
+"""Get, format and analyze (sentiment) YouTube transcript.
+
+TODO: use spaCy to fix transcript errors or nltk + difflib to get closest phonemes
+TODO: identify speakers (a.k.a. speaker diarization) in transcript using pyannote (get audio with yt-dlp or youtube-dl)
+"""
 
 import json
 import textwrap
@@ -9,7 +13,7 @@ from youtube_transcript_api._api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 
 import my_constants
-from main import log
+import my_logger
 
 
 def get_youtube_transcript(video_id: str) -> str:
@@ -19,14 +23,14 @@ def get_youtube_transcript(video_id: str) -> str:
         transcript_list = ytt_api.list(video_id)
     except json.decoder.JSONDecodeError:
         # catching this due to https://github.com/jdepoix/youtube-transcript-api/issues/407
-        log.exception("JSONDecodeError while getting transcripts list", stack_info=True)
+        my_logger.log.exception("JSONDecodeError while getting transcripts list", stack_info=True)
         return "Error: transcript list not found"
     # filter for transcripts, french first, otherwise english
     # note: youtube_transcript_api always chooses manually created transcripts over automatically created ones
     try:
         transcript = transcript_list.find_transcript(["fr", "en"])
     except NoTranscriptFound:
-        log.exception("NoTranscriptFound while searching transcripts in French or English", stack_info=True)
+        my_logger.log.exception("NoTranscriptFound while searching transcripts in French or English", stack_info=True)
         return "Error: Transcript not found."
 
     fetched_transcript = transcript.fetch()
