@@ -56,6 +56,7 @@ def main() -> None:
         if summary is None:
             my_logger.log.error("Error: Summary could not be generated.")
             sys.exit(1)
+        else:
             my_logger.log.info("Summary generated successfully")
 
             markdown_output = my_fmt.format_markdown(
