@@ -2,7 +2,7 @@
 
 def format_markdown(
     video_title: str,
-    video_url: str,
+    video_path: str,
     summary: str,
     sentiment: str,
     language: str,
@@ -10,9 +10,9 @@ def format_markdown(
     """Format the final output in Markdown."""
     if language == "en":
         return f"""
-## 📺 YouTube Video Summary
-- Video title: {video_title}
-- From: {video_url}
+## 📺 Video Summary
+- Title: {video_title}
+- From: {video_path}
 - **Sentiment:** {sentiment}
 ### 🎯 Theme & Summary
 {summary}
@@ -20,10 +20,10 @@ def format_markdown(
 """
     if language == "fr":
         return f"""
-## 📺 Résumé Vidéo YouTube
-- Titre de la vidéo: {video_title}
-- De: {video_url}
-- **Sentiment:** {sentiment}
+## 📺 Résumé de la vidéo
+- Titre : {video_title}
+- De : {video_path}
+- **Sentiment :** {sentiment}
 ### 🎯 Thème & Résumé
 {summary}
 

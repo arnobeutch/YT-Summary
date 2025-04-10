@@ -2,3 +2,4 @@
 test_openai_api.py
 __pycache__/
 results/*
+dummy.mp4

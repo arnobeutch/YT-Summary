@@ -3,62 +3,68 @@
 Uses the YT package and the langchain_openai package.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
-from dotenv import load_dotenv
 
 import analyze_yt_transcript as aytt
 import format_utils as my_fmt
-import my_logger
 import my_parser
 import prepare_yt_transcript as pytt
+from my_logger import initialize_logger, my_logger
 
 
 def main() -> None:
     """Retrieve transcript and analyze."""
+    # set up logger
+    initialize_logger()
+
     # get command-line arguments
     args = my_parser.parse_args()
+    if args.verbose:
+        my_logger.setLevel(logging.DEBUG)
 
-    # set up logger
-    my_logger.initialize_logger(args)
+    my_logger.info(f"Script called with the following arguments: {vars(args)}")
 
-    my_logger.log.info(f"Script called with the following arguments: {vars(args)}")
+    if args.is_url:
+        video_id = args.input_path.split("v=")[1]
+        my_logger.debug(f"Video ID: {video_id}")
+        transcript = pytt.get_youtube_transcript(video_id)
+        # get video title
+        # TODO: add error handling
+        r = requests.get(args.input_path, timeout=10)
+        soup = BeautifulSoup(r.content, "html.parser")
+        link = soup.find_all(name="title")[0]
+        video_title = link.text
+        my_logger.info(f"Video title: {video_title}")
 
-    load_dotenv()  # declare your OPENAI_API_KEY in a .env file
-    video_id = args.youtube_video_url.split("v=")[1]
-    my_logger.log.debug(f"Video ID: {video_id}")
-    transcript = pytt.get_youtube_transcript(video_id)
-    # get video title
-    # TODO: add error handling
-    r = requests.get(args.youtube_video_url, timeout=10)
-    soup = BeautifulSoup(r.content, "html.parser")
-    link = soup.find_all(name="title")[0]
-    video_title = link.text
-    my_logger.log.info(f"Video title: {video_title}")
+    if args.is_file:
+        my_logger.error("Error: Local file not supported yet.")
+        sys.exit(1)
 
     if "Error" not in transcript:
-        my_logger.log.info("Transcript retrieved successfully")
+        my_logger.info("Transcript retrieved successfully")
         sentiment = pytt.analyze_sentiment(transcript)
         p = Path("./results/transcript.txt")
         with p.open(mode="w",encoding="utf8") as f:
             my_text = f"Transcript:\n{transcript}\n\nSentiment: {sentiment}"
             f.write(my_text)
         if args.summarize:
-            my_logger.log.info("Generating summary...")
+            my_logger.info("Generating summary...")
             summary = aytt.summarize_transcript(transcript, args.language)
             if summary is None:
-                my_logger.log.error("Error: Summary could not be generated.")
+                my_logger.error("Error: Summary could not be generated.")
                 sys.exit(1)
             else:
-                my_logger.log.info("Summary generated successfully")
+                my_logger.info("Summary generated successfully")
 
                 markdown_output = my_fmt.format_markdown(
                     video_title,
-                    args.youtube_video_url,
+                    args.input_path,
                     summary,
                     sentiment,
                     args.language,
@@ -74,7 +80,7 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        my_logger.log.critical("Interrupted by user")
+        my_logger.critical("Interrupted by user")
         try:
             sys.exit(0)
         except SystemExit:

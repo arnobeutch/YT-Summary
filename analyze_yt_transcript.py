@@ -1,10 +1,10 @@
 """Analyze YouTube transcript with OpenAI API."""
 
-# see: https://pypi.org/project/openai/
-from openai import OpenAI
+from dotenv import load_dotenv
+from openai import OpenAI  # see: https://pypi.org/project/openai/
 
 import my_constants
-import my_logger
+from my_logger import my_logger
 
 
 def summarize_transcript(transcript: str, language: str) -> str | None:
@@ -16,6 +16,7 @@ def summarize_transcript(transcript: str, language: str) -> str | None:
     else:
         return "Error: summarizer language not supported."
 
+    load_dotenv()  # declare your OPENAI_API_KEY in a .env file
     client = OpenAI()
     try:
         response = client.chat.completions.create(
@@ -27,11 +28,11 @@ def summarize_transcript(transcript: str, language: str) -> str | None:
         )
         return response.choices[0].message.content
     except OpenAI.error.AuthenticationError:
-        my_logger.log.exception("AuthenticationError while performing OpenAI API request", stack_info=True)
+        my_logger.exception("AuthenticationError while performing OpenAI API request", stack_info=True)
         return "Error: OpenAI API request was not authorized\nCheck or set your API key"
     except OpenAI.error.Timeout:
-        my_logger.log.exception("Timeout while performing OpenAI API request", stack_info=True)
+        my_logger.exception("Timeout while performing OpenAI API request", stack_info=True)
         return "Error: OpenAI API request timed out"
     except Exception:
-        my_logger.log.exception("Unexpected error while performing OpenAI API request", stack_info=True)
+        my_logger.exception("Unexpected error while performing OpenAI API request", stack_info=True)
         return "Error: unexpected error while performing OpenAI API request"
