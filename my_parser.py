@@ -13,7 +13,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "A python script to summarize YouTube videos."
-            "\nThe script will output a markdown-formatted summary of the video."
+            "\nThe script will output the video text transcript"
+            "\nand a markdown-formatted summary of the video, if asked (default: no)."
             "\nNote 1: The video must have either English or French subtitles."
             "\n\tThe script will output an error message if no such transcript is found."
             "\nNote 2: You must have an OpenAI API key to use this script, and credited tokens."
@@ -38,18 +39,11 @@ def parse_args() -> argparse.Namespace:
         help="Use en or fr to specify the language of the summary (default: en)",
     )
     parser.add_argument(
-        "-t",
-        "--transcript",
+        "-s",
+        "--summarize",
         action="store_true",
         default=False,
-        help="Output the full transcript & sentiment instead of a summary",
-    )
-    parser.add_argument(
-        "-f",
-        "--file",
-        action="store_true",
-        default=False,
-        help="Output the summary or transcript to file",
+        help="Output a summary of the video transcript",
     )
 
     return parser.parse_args()

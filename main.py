@@ -20,6 +20,7 @@ import prepare_yt_transcript as pytt
 
 def main() -> None:
     """Retrieve transcript and analyze."""
+    # get command-line arguments
     args = my_parser.parse_args()
 
     # set up logger
@@ -42,36 +43,29 @@ def main() -> None:
     if "Error" not in transcript:
         my_logger.log.info("Transcript retrieved successfully")
         sentiment = pytt.analyze_sentiment(transcript)
-        if args.transcript:
-            if args.file:
-                p = Path("./results/transcript.txt")
-                with p.open(mode="w",encoding="utf8") as f:
-                    my_text = f"Transcript:\n{transcript}\n\nSentiment: {sentiment}"
-                    f.write(my_text)
+        p = Path("./results/transcript.txt")
+        with p.open(mode="w",encoding="utf8") as f:
+            my_text = f"Transcript:\n{transcript}\n\nSentiment: {sentiment}"
+            f.write(my_text)
+        if args.summarize:
+            my_logger.log.info("Generating summary...")
+            summary = aytt.summarize_transcript(transcript, args.language)
+            if summary is None:
+                my_logger.log.error("Error: Summary could not be generated.")
+                sys.exit(1)
             else:
-                print(f"Transcript:\n{transcript}\n\n")
-                print(f"Sentiment: {sentiment}")
-            sys.exit(0)
-        summary = aytt.summarize_transcript(transcript, args.language)
-        if summary is None:
-            my_logger.log.error("Error: Summary could not be generated.")
-            sys.exit(1)
-        else:
-            my_logger.log.info("Summary generated successfully")
+                my_logger.log.info("Summary generated successfully")
 
-            markdown_output = my_fmt.format_markdown(
-                video_title,
-                args.youtube_video_url,
-                summary,
-                sentiment,
-                args.language,
-            )
-        if args.file:
-            p = Path("./results/summary.md")
-            with p.open(mode="w", encoding="utf8") as f:
-                f.write(markdown_output)
-        else:
-            print(markdown_output)
+                markdown_output = my_fmt.format_markdown(
+                    video_title,
+                    args.youtube_video_url,
+                    summary,
+                    sentiment,
+                    args.language,
+                )
+                p = Path("./results/summary.md")
+                with p.open(mode="w", encoding="utf8") as f:
+                    f.write(markdown_output)
     else:
         print(transcript)
 
