@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 import analyze_yt_transcript as aytt
 import format_utils as my_fmt
 import my_parser
+import prepare_local_transcript as plt
 import prepare_yt_transcript as pytt
 from my_logger import initialize_logger, my_logger
 
@@ -35,16 +36,26 @@ def main() -> None:
         my_logger.debug(f"Video ID: {video_id}")
         transcript = pytt.get_youtube_transcript(video_id)
         # get video title
-        # TODO: add error handling
         r = requests.get(args.input_path, timeout=10)
         soup = BeautifulSoup(r.content, "html.parser")
         link = soup.find_all(name="title")[0]
         video_title = link.text
-        my_logger.info(f"Video title: {video_title}")
 
-    if args.is_file:
-        my_logger.error("Error: Local file not supported yet.")
-        sys.exit(1)
+    if args.is_media_file:
+        # language will be updated to the one used in the video
+        # It's possible to set the transcription model size as argument: model_size="small" for example.
+        # Default is "base"
+        if args.language is not None:
+            my_logger.warning("Language argument is ignored for local media files, it will be auto-detected.")
+        transcript, args.language = plt.transcribe_video_file(args.input_path)
+        video_title = Path(args.input_path).stem
+
+    if args.is_text_file:
+        with Path.open(args.input_path, encoding="utf8") as file:
+            transcript = file.read()
+        video_title = Path(args.input_path).stem
+
+    my_logger.info(f"Video title: {video_title}")
 
     if "Error" not in transcript:
         my_logger.info("Transcript retrieved successfully")

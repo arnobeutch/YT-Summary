@@ -1,4 +1,4 @@
-"""Analyze YouTube transcript with OpenAI API."""
+"""Analyze video transcripts (YT, local) with OpenAI API."""
 
 from dotenv import load_dotenv
 from openai import OpenAI  # see: https://pypi.org/project/openai/

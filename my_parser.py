@@ -1,7 +1,6 @@
 """Command-line parser for this script."""
 
 import argparse
-import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -26,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(
         description=(
-            "A python script to summarize YouTube videos, local videos or local audio."
+            "A python script to summarize YouTube videos, local videos or local audio, or existing transcript (.txt)."
             "\nThe script will output the video/audio text transcript"
             "\nand a markdown-formatted summary of the video, if asked (default: no)."
             "\nNote 1: The YT video must have either English or French subtitles."
@@ -46,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     # mandatory argument: youtube video url
     parser.add_argument(
         "input_path",
-        help="URL of the YouTube video or path to a local media file to summarize",
+        help="URL of the YouTube video or path to a local media / text file to summarize",
     )
     # optional arguments
     parser.add_argument("-v", "--verbose", action="store_true", help="Increases logging verbosity")
@@ -71,6 +70,22 @@ def parse_args() -> argparse.Namespace:
     args.is_file = Path(args.input_path).is_file()
     if args.is_file:
         my_logger.debug(f"Input path is a valid file: {args.input_path}")
+        # Detect if the file is a media file or a text file
+        media_extensions = {".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", "m4a"}
+        text_extensions = {".txt", ".srt", ".vtt"}
+        file_extension = Path(args.input_path).suffix.lower()
+        if file_extension in media_extensions:
+            args.is_media_file = True
+            args.is_text_file = False
+            my_logger.debug(f"Input file is detected as a media file: {args.input_path}")
+        elif file_extension in text_extensions:
+            args.is_media_file = False
+            args.is_text_file = True
+            my_logger.debug(f"Input file is detected as a text file: {args.input_path}")
+        else:
+            args.is_media_file = False
+            args.is_text_file = False
+            my_logger.warning(f"Input file type is unknown: {args.input_path}")
     # Check if input_path is a valid URL or an existing local file
     if not args.is_file and not args.is_url:
         err_msg = f"Invalid input path: {args.input_path}. Must be a valid URL or an existing local file."
