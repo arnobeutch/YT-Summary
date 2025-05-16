@@ -35,7 +35,7 @@ def parse_args() -> argparse.Namespace:
             "\nUse the -h flag for help."
         ),
         usage=(
-            "python main.py <youtube_video_url> [optional_arguments]"
+            "python main.py <youtube_video_url | path to file> [optional_arguments]"
             "\nExample: python main.py https://www.youtube.com/watch?v=VIDEO_ID"
             "\nOr: python main.py <path to audio/video file> [optional_arguments]"
             "\nExample: python main.py ./my_video.mp4"
@@ -54,14 +54,28 @@ def parse_args() -> argparse.Namespace:
         "--language",
         choices={"en", "fr"},
         default="en",
-        help="Use en or fr to specify the language of the summary (default: en)",
+        help="Use en or fr to specify the language of the summary (default: en)"
+        "\nNote: this argument is ignored for local media files, as the language will be auto-detected.",
+    )
+    parser.add_argument(
+        "-d",
+        "--diarize",
+        action="store_true",
+        default=False,
+        help="Diarize the audio (identify speakers) in the transcript (default: False)",
     )
     parser.add_argument(
         "-s",
         "--summarize",
         action="store_true",
         default=False,
-        help="Output a summary of the video transcript",
+        help="Output a summary of the video transcript (default: False)",
+    )
+    parser.add_argument(
+        "--with_openai",
+        action="store_true",
+        default=False,
+        help="Use OpenAI API to summarize the transcript (default: False)",
     )
     args = parser.parse_args()
     args.is_url = is_valid_url(args.input_path)
@@ -86,10 +100,13 @@ def parse_args() -> argparse.Namespace:
             args.is_media_file = False
             args.is_text_file = False
             my_logger.warning(f"Input file type is unknown: {args.input_path}")
+    else:
+            args.is_media_file = False
+            args.is_text_file = False
+
     # Check if input_path is a valid URL or an existing local file
     if not args.is_file and not args.is_url:
         err_msg = f"Invalid input path: {args.input_path}. Must be a valid URL or an existing local file."
         raise argparse.ArgumentTypeError(err_msg)
 
     return args
-

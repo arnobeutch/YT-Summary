@@ -8,9 +8,10 @@
 
 ## To do
 
-* Process a local video or audio file
-  * Change command line parsing so that it accepts a local file next to YT videos
-  * If video file was provided, extract audio using ...
-  * Use xxx to extract transcript from audio file
-* Use yyy to improve transcript quality
+* Summarize with local LLM i/o burning OPENAI_API credits (command-line switch)
+* Rather than relying on YT transcripts of dubious quality, download YT audio w. yt_dlp and process locally with whisper
+* Use spacy & nltk to improve transcript quality. Extend further by:
+  * Integrating a Levenshtein distance on phoneme sequences
+  * Prioritizing corrections based on contextual language models (e.g., transformers)
+  * Filtering using part-of-speech or NER if needed
 * Use PyAnnote so that it recognizes speakers (a.k.a. speaker diarization) so as to be able to summarize separately their opinions / rationale from a conversation

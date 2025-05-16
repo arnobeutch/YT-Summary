@@ -8,7 +8,6 @@ import json
 import textwrap
 
 # see: https://pypi.org/project/youtube-transcript-api/
-from textblob import TextBlob
 from youtube_transcript_api._api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 
@@ -27,6 +26,7 @@ def get_youtube_transcript(video_id: str) -> str:
         return "Error: transcript list not found"
     # filter for transcripts, french first, otherwise english
     # note: youtube_transcript_api always chooses manually created transcripts over automatically created ones
+    # TODO: identify the languange of the transcript returned
     try:
         transcript = transcript_list.find_transcript(["fr", "en"])
     except NoTranscriptFound:
@@ -40,13 +40,3 @@ def get_youtube_transcript(video_id: str) -> str:
     return textwrap.fill(transcript_text, width=80)
 
 
-def analyze_sentiment(text: str) -> str:
-    """Determine the sentiment of the transcript."""
-    blob = TextBlob(text)
-    polarity = blob.sentiment.polarity
-
-    if polarity > my_constants.POLARITY_POSITIVE_THRESHOLD:
-        return "Positive"
-    if polarity < my_constants.POLARITY_NEGATIVE_THRESHOLD:
-        return "Negative"
-    return "Neutral"
