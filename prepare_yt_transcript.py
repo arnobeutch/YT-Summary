@@ -6,10 +6,11 @@ TODO: identify speakers (a.k.a. speaker diarization) in transcript using pyannot
 
 import json
 import textwrap
+from xml.etree.ElementTree import ParseError as XMLParseError
 
 # see: https://pypi.org/project/youtube-transcript-api/
 from youtube_transcript_api._api import YouTubeTranscriptApi
-from youtube_transcript_api._errors import NoTranscriptFound
+from youtube_transcript_api._errors import CouldNotRetrieveTranscript, NoTranscriptFound
 
 from my_logger import my_logger
 
@@ -23,6 +24,11 @@ def get_youtube_transcript(video_id: str) -> str:
         # catching this due to https://github.com/jdepoix/youtube-transcript-api/issues/407
         my_logger.exception("JSONDecodeError while getting transcripts list", stack_info=True)
         return "Error: transcript list not found"
+    except CouldNotRetrieveTranscript:
+        # TranscriptsDisabled, VideoUnavailable, IpBlocked, AgeRestricted, etc.
+        # All signal "no transcript available" — caller falls back to local transcription.
+        my_logger.exception("Could not list transcripts", stack_info=True)
+        return "Error: Transcript unavailable."
     # filter for transcripts, french first, otherwise english
     # note: youtube_transcript_api always chooses manually created transcripts over automatically created ones
     # TODO: identify the languange of the transcript returned
@@ -34,7 +40,13 @@ def get_youtube_transcript(video_id: str) -> str:
         )
         return "Error: Transcript not found."
 
-    fetched_transcript = transcript.fetch()
+    try:
+        fetched_transcript = transcript.fetch()
+    except XMLParseError:
+        # Empty XML body — YouTube returned no transcript content even though
+        # the transcript was listed (can happen on videos without real captions).
+        my_logger.exception("Empty transcript payload while fetching", stack_info=True)
+        return "Error: Transcript payload empty."
 
     # Combine text
     transcript_text = " ".join([entry.text for entry in fetched_transcript])

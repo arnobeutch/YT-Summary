@@ -1,0 +1,136 @@
+"""Tests for my_parser."""
+
+from __future__ import annotations
+
+import argparse
+from typing import TYPE_CHECKING
+
+import pytest
+
+from my_parser import is_valid_url, parse_args
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+class TestIsValidUrl:
+    def test_http_url(self) -> None:
+        assert is_valid_url("http://example.com")
+
+    def test_https_url(self) -> None:
+        assert is_valid_url("https://www.youtube.com/watch?v=abc123")
+
+    def test_url_with_path(self) -> None:
+        assert is_valid_url("https://example.com/path/to/thing")
+
+    def test_empty_string(self) -> None:
+        assert not is_valid_url("")
+
+    def test_plain_string(self) -> None:
+        assert not is_valid_url("just-a-string")
+
+    def test_scheme_without_netloc(self) -> None:
+        assert not is_valid_url("http://")
+
+    def test_relative_path(self) -> None:
+        assert not is_valid_url("./my_video.mp4")
+
+
+def _run_parser(argv: list[str], monkeypatch: pytest.MonkeyPatch) -> argparse.Namespace:
+    monkeypatch.setattr("sys.argv", ["main.py", *argv])
+    return parse_args()
+
+
+class TestParseArgs:
+    def test_url_input(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://youtube.com/watch?v=abc"], monkeypatch)
+        assert ns.is_url
+        assert not ns.is_file
+        assert not ns.is_media_file
+        assert not ns.is_text_file
+
+    def test_media_file_input_uppercase_ext(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        media = tmp_path / "clip.MP4"  # uppercase extension — must still match
+        media.write_text("")
+        ns = _run_parser([str(media)], monkeypatch)
+        assert ns.is_file
+        assert ns.is_media_file
+        assert not ns.is_text_file
+
+    @pytest.mark.parametrize("ext", [".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", ".m4a"])
+    def test_all_media_extensions(
+        self,
+        ext: str,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        f = tmp_path / f"clip{ext}"
+        f.write_text("")
+        ns = _run_parser([str(f)], monkeypatch)
+        assert ns.is_media_file
+
+    @pytest.mark.parametrize("ext", [".txt", ".srt", ".vtt"])
+    def test_all_text_extensions(
+        self,
+        ext: str,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        f = tmp_path / f"tr{ext}"
+        f.write_text("")
+        ns = _run_parser([str(f)], monkeypatch)
+        assert ns.is_text_file
+
+    def test_unknown_extension_is_neither(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        p = tmp_path / "thing.pdf"
+        p.write_text("")
+        ns = _run_parser([str(p)], monkeypatch)
+        assert ns.is_file
+        assert not ns.is_media_file
+        assert not ns.is_text_file
+
+    def test_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.language == "en"
+        assert ns.diarize is False
+        assert ns.summarize is False
+        assert ns.with_openai is False
+        assert ns.debug is False
+
+    def test_language_fr(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--language", "fr"], monkeypatch)
+        assert ns.language == "fr"
+
+    def test_language_short_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "-l", "fr"], monkeypatch)
+        assert ns.language == "fr"
+
+    def test_debug_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "-d"], monkeypatch)
+        assert ns.debug is True
+
+    def test_all_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--diarize", "--summarize", "--with_openai"],
+            monkeypatch,
+        )
+        assert ns.diarize is True
+        assert ns.summarize is True
+        assert ns.with_openai is True
+
+    def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
+            _run_parser(["not-a-url-nor-file"], monkeypatch)
+
+    def test_unsupported_language_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # argparse rejects invalid choice with SystemExit(2)
+        with pytest.raises(SystemExit):
+            _run_parser(["https://y.com/watch?v=x", "-l", "de"], monkeypatch)

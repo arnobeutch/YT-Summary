@@ -94,8 +94,8 @@ def summarize_transcript_with_openai(
     sentiment = analyze_sentiment(transcript)
 
     Settings.from_env()  # populate os.environ from .env (OPENAI_API_KEY etc.)
-    client = OpenAI()
     try:
+        client = OpenAI()
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[
@@ -110,7 +110,9 @@ def summarize_transcript_with_openai(
         my_logger.exception("Timeout while performing OpenAI API request")
         return
     except openai.OpenAIError:
-        my_logger.exception("OpenAI API error")
+        # Covers missing OPENAI_API_KEY at client construction as well as
+        # runtime API errors (base class of all openai exceptions).
+        my_logger.exception("OpenAI API error — is OPENAI_API_KEY set in .env or the environment?")
         return
 
     content = response.choices[0].message.content

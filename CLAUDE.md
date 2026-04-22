@@ -34,6 +34,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 - `uv add`, `uv run`, `uv sync` — never `pip`/`venv` directly.
 - `just lint`, `just typecheck`, `just test`, `just all`.
 - `pre-commit` runs ruff + pyright + pytest on `git commit` once installed (`uv run pre-commit install`).
+- `pytest -m integration` runs opt-in ML tests (whisper / pyannote). They need a fixture at `tests/integration/data/hello.wav` (see the test module's docstring) and download whisper models on first run. Skipped by default.
 - Do not auto-commit.
 - Keep changes minimal and focused.
 

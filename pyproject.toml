@@ -24,6 +24,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "unidecode>=1.3.8",
     "youtube-transcript-api>=1.0.3",
+    "yt-dlp>=2026.3.17",
 ]
 
 [tool.uv.extra-build-dependencies]
@@ -32,6 +33,10 @@ openai-whisper = ["setuptools<81"]  # pkg_resources was removed from default ins
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+addopts = "-m 'not integration'"
+markers = [
+    "integration: slow tests hitting real ML deps (whisper, pyannote) — run with `pytest -m integration`.",
+]
 
 [tool.ruff]
 line-length = 100
@@ -74,6 +79,7 @@ typeCheckingMode = "strict"
 pythonVersion = "3.11"  # 2026-04-22: diverges from Boilerplate (3.13) — deps pin Python 3.11.9
 include = ["."]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".venv", "build", "dist"]
+extraPaths = ["."]  # 2026-04-22: mirror pytest pythonpath so tests/ can import sibling modules (main, my_logger, ...)
 reportUnknownVariableType = "error"
 reportUnknownArgumentType = "error"
 reportUnknownMemberType = "error"
@@ -94,6 +100,10 @@ reportImplicitOverride = false
 reportMissingSuperCall = false
 reportIncompatibleVariableOverride = false
 reportMissingTypeStubs = false  # 2026-04-22: ML ecosystem (whisper, pyannote, torchaudio, ffmpeg, textblob, langchain) ships no stubs
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
+reportPrivateUsage = "none"  # 2026-04-22: tests cover private helpers (_load_dotenv, _excepthook, _sanitize_filename); mirrors ruff's SLF001 ignore for tests/
 
 [dependency-groups]
 dev = [

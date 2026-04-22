@@ -19,7 +19,10 @@ def extract_sections(summary: str, language: str) -> dict[str, str]:
     """
     titles = list(RAG_SECTION_TITLES[language].keys())
     joined_titles = "|".join(re.escape(t) for t in titles)
-    pattern = rf"({joined_titles})\s*:\s*(.*?)(?=\n\S+?:|\Z)"
+    # Bound each section at the next known title or end-of-string. Using the
+    # title alternation in the lookahead (instead of `\n\S+?:`) correctly
+    # handles multi-word titles like "Principaux enseignements".
+    pattern = rf"({joined_titles})\s*:\s*(.*?)(?=\n(?:{joined_titles})\s*:|\Z)"
 
     matches = re.findall(pattern, summary, flags=re.DOTALL)
     return {title.strip(): body.strip() for title, body in matches}
