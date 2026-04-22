@@ -1,13 +1,13 @@
 [project]
 name = "yt-summary"
 version = "0.1.0"
-description = "Add your description here"
+description = "Summarize YouTube videos, local media, or existing transcripts."
 readme = "README.md"
 requires-python = "==3.11.9"
 dependencies = [
     "bs4>=0.0.2",
     "chromadb>=1.0.4",
-    "dotenv>=0.9.9",
+    "colorama>=0.4.6",
     "ffmpeg-python>=0.2.0",
     "langchain>=0.3.23",
     "langchain-community>=0.3.21",
@@ -17,8 +17,8 @@ dependencies = [
     "openai>=1.67.0",
     "openai-whisper>=20240930",
     "pyannote-audio>=3.3.2",
+    "pyyaml>=6.0.3",
     "requests>=2.32.3",
-    "ruff>=0.11.0",
     "textblob>=0.19.0",
     "torchaudio>=2.6.0",
     "tqdm>=4.67.1",
@@ -26,6 +26,78 @@ dependencies = [
     "youtube-transcript-api>=1.0.3",
 ]
 
+[tool.uv.extra-build-dependencies]
+openai-whisper = ["setuptools<81"]  # pkg_resources was removed from default install in setuptools 81
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"  # 2026-04-22: diverges from Boilerplate (py313) — deps pin Python 3.11.9
+
 [tool.ruff.lint]
 select = ["ALL"]
-ignore = ["ERA001", "G004", "PIE808", "PD901", "T201", "TD002", "TD003", "S311"]
+ignore = [
+    "ERA001", "G004", "PIE808", "T201", "TD002", "TD003", "S311",
+    "E501",
+    "COM812",
+    "ISC001",
+    "D",
+    "CPY",
+    "ANN401",
+    "FIX",
+    "TRY003",
+    "PLR0913",
+    "PLR2004",
+    "TC001", "TC002", "TC003",  # 2026-04-16: allow runtime-visible imports; no perf concern here
+    "TC006",  # 2026-04-16: don't force quoted type in cast(); with __future__ annotations it's pointless churn
+    "EM101", "EM102",  # 2026-04-16: inline exception messages are fine; no mandatory variable-first pattern
+    "TID252",  # 2026-04-16: relative imports (from .base, from ..models) are idiomatic intra-package
+    "C901", "PLR0911", "PLR0912", "PLR0915",  # 2026-04-16: complexity metrics are opinion, not bug (same family as PLR0913)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108", "PLR2004", "SLF001", "ARG", "ANN", "INP001"]
+"main.py" = ["INP001"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pyright]
+typeCheckingMode = "strict"
+pythonVersion = "3.11"  # 2026-04-22: diverges from Boilerplate (3.13) — deps pin Python 3.11.9
+include = ["."]
+exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".venv", "build", "dist"]
+reportUnknownVariableType = "error"
+reportUnknownArgumentType = "error"
+reportUnknownMemberType = "error"
+reportUnknownParameterType = "error"
+reportUnknownLambdaType = "error"
+reportMissingTypeArgument = "error"
+reportCallIssue = "error"
+reportArgumentType = "error"
+reportAssignmentType = "error"
+reportReturnType = "error"
+reportAttributeAccessIssue = "error"
+reportGeneralTypeIssues = "error"
+reportUnnecessaryComparison = "error"
+reportUnnecessaryCast = "error"
+reportUnnecessaryIsInstance = "error"
+reportUnusedExpression = "error"
+reportImplicitOverride = false
+reportMissingSuperCall = false
+reportIncompatibleVariableOverride = false
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "ruff>=0.6",
+    "pyright>=1.1",
+    "pre-commit>=3.7",
+]

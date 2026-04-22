@@ -1,4 +1,9 @@
-"""Script constants."""
+"""Project-wide constants and mutable globals."""
+
+# --- Constants (immutable) ---
+
+POLARITY_POSITIVE_THRESHOLD = 0.2
+POLARITY_NEGATIVE_THRESHOLD = -0.2
 
 OPENAI_PROMPT_EN = """
 You are an expert summarizer. Given the following YouTube video transcript, provide:
@@ -13,6 +18,7 @@ Provide a structured summary.
 
 Transcript:
 """
+
 OPENAI_PROMPT_FR = """
 Vous êtes un expert en résumé. Étant donné la transcription vidéo YouTube suivante, fournissez:
 
@@ -26,10 +32,6 @@ Fournir un résumé structuré.
 
 Transcription:
 """
-POLARITY_POSITIVE_THRESHOLD = 0.2
-POLARITY_NEGATIVE_THRESHOLD = -0.2
-
-# -- Prompts --
 
 RAG_FRENCH_PROMPT = """
 Tu es un assistant intelligent qui aide à résumer des transcriptions de réunions professionnelles. Tu vas analyser le contenu suivant et fournir les éléments suivants en français, de manière claire et concise, avec des informations précises et attribution des intervenants.
@@ -41,9 +43,9 @@ Tâches :
 1. Détermine le sujet principal de la réunion.
 2. Propose quelques hashtags pertinents (une seule ligne).
 3. Résume les points clés discutés, en indiquant qui les a exprimés.
-4. Liste les questions posées (avec les auteurs) et les réponses correspondantes (avec les répondants), s’il y en a.
-5. Indique les décisions prises, s’il y en a.
-6. Détaille les actions à suivre avec les personnes responsables, s’il y en a.
+4. Liste les questions posées (avec les auteurs) et les réponses correspondantes (avec les répondants), s'il y en a.
+5. Indique les décisions prises, s'il y en a.
+6. Détaille les actions à suivre avec les personnes responsables, s'il y en a.
 
 Format :
 Sujet : ...
@@ -103,3 +105,6 @@ RAG_SECTION_TITLES = {
         "Actions à suivre": "## Action Items",
     },
 }
+
+
+# --- Globals (mutable shared state) ---

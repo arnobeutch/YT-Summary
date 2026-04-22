@@ -1,5 +1,25 @@
-.env
-test_openai_api.py
+# Python-generated files
 __pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Logs
+logs/
+
+# Test / lint caches
+.pytest_cache/
+.ruff_cache/
+
+# Local env overrides
+.env
+
+# Project-specific
+test_openai_api.py
 results/*
 chroma_db

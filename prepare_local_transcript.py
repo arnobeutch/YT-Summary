@@ -11,7 +11,6 @@ import torch.cuda
 import torchaudio
 import tqdm
 import whisper
-from dotenv import load_dotenv
 
 # from huggingface_hub import login
 from pyannote.audio import Pipeline
@@ -19,6 +18,7 @@ from pyannote.core import Segment, Timeline
 
 # from typing import List, Tuple
 from my_logger import my_logger
+from my_settings import Settings
 
 
 class TqdmProgressBar:
@@ -113,7 +113,7 @@ def transcribe_video_file(video_file: str, model_size: str = "base") -> tuple[st
 def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
     """Diarize speakers in the audio file using PyAnnote."""
     my_logger.info(f"Diarizing speakers in: {audio_file}")
-    load_dotenv()  # Load environment variables from .env file
+    Settings.from_env()  # populate os.environ from .env (HUGGINGFACE_TOKEN etc.)
     HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # noqa: N806
     if not HUGGINGFACE_TOKEN:
         err_msg = "Missing Hugging Face token in HUGGINGFACE_TOKEN env variable"
@@ -192,7 +192,7 @@ def detect_speech_segments(audio_file: str) -> Timeline:
         pyannote.core.Timeline: Detected speech segments.
 
     """
-    load_dotenv()
+    Settings.from_env()
     token = os.getenv("HUGGINGFACE_TOKEN")
     if not token:
         err_msg = "Missing Hugging Face token in HUGGINGFACE_TOKEN env variable"

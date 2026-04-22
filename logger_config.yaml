@@ -1,0 +1,64 @@
+version: 1
+disable_existing_loggers: false # otherwise this config is completely messed up
+formatters:
+  simple:
+    format: '%(levelname)s: %(message)s'
+    datefmt: '%Y-%m-%dT%H:%M:%S%z'
+  detailed:
+    format: '[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s'
+    datefmt: '%Y-%m-%dT%H:%M:%S%z'
+  color:
+    (): my_logger.ColorFormatter
+    fmt: '%(levelname)-8s %(name)s: %(message)s'
+    datefmt: '%H:%M:%S'
+  json:
+    (): my_logger.MyJSONFormatter
+    fmt_keys:
+      level: levelname
+      message: message
+      timestamp: timestamp
+      logger: name
+      module: module
+      function: funcName
+      line: lineno
+      thread_name: threadName
+filters:
+  no_errors:
+    (): my_logger.NonErrorFilter
+handlers:
+  stdout:
+    class: logging.StreamHandler
+    formatter: color
+    stream: ext://sys.stdout
+    #level: INFO
+    filters:
+    - no_errors
+  stderr:
+    class: logging.StreamHandler
+    formatter: color
+    stream: ext://sys.stderr
+    level: WARNING
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/yt-summary.log
+    maxBytes: 100000
+    backupCount: 3
+  # Structured JSON logging — opt in by uncommenting `- json_file` under root.handlers below.
+  # `delay: true` keeps the file closed until the handler is actually attached + emits.
+  json_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/yt-summary.jsonl
+    maxBytes: 100000
+    backupCount: 3
+    delay: true
+root:
+  level: INFO
+  handlers:
+  - stdout
+  - stderr
+  - file
+  # - json_file  # uncomment to enable structured JSON log file

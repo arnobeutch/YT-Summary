@@ -2,13 +2,13 @@
 
 from pathlib import Path
 
-from dotenv import load_dotenv
 from openai import OpenAI  # see: https://pypi.org/project/openai/
 from textblob import TextBlob
 
 import my_constants
 from markdown_writer import format_summary_markdown, simple_format_markdown
 from my_logger import my_logger
+from my_settings import Settings
 from preprocess_transcript import parse_transcript, try_resolve_speaker_names
 from q_and_a_engine import generate_summary
 
@@ -90,7 +90,7 @@ def summarize_transcript_with_openai(
 
     sentiment = analyze_sentiment(transcript)
 
-    load_dotenv()  # declare your OPENAI_API_KEY in a .env file
+    Settings.from_env()  # populate os.environ from .env (OPENAI_API_KEY etc.)
     client = OpenAI()
     try:
         response = client.chat.completions.create(
