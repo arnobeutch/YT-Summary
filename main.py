@@ -89,7 +89,6 @@ def main() -> None:
         else:
             st.summarize_transcript_with_rag(
                 transcript,
-                args.input_path,
                 video_title,
                 args.language,
                 model="mistral",

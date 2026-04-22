@@ -16,7 +16,7 @@ def parse_transcript(transcript: str) -> list[tuple[str, str]]:
 
     """
     lines = transcript.strip().splitlines()
-    utterances = []
+    utterances: list[tuple[str, str]] = []
 
     for line in lines:
         if ": " not in line:
@@ -54,6 +54,4 @@ def try_resolve_speaker_names(
             guessed_name = match.group(1).capitalize()
             speaker_name_map[speaker] = guessed_name
 
-    return [
-        (speaker_name_map.get(speaker, speaker), text) for speaker, text in utterances
-    ]
+    return [(speaker_name_map.get(speaker, speaker), text) for speaker, text in utterances]

@@ -19,7 +19,7 @@ repos:
         pass_filenames: false
       - id: pytest
         name: pytest
-        entry: uv run pytest
+        entry: bash -c 'uv run pytest "$@" || [[ $? = 5 ]]' --  # treat exit 5 (no tests collected) as success
         language: system
         types: [python]
         pass_filenames: false

@@ -60,8 +60,7 @@ def format_summary_markdown(raw_summary: str, filename_stem: str, language: str)
     sections = extract_sections(raw_summary, language)
 
     completed_sections = {
-        title: clean_section(sections.get(title, ""), language)
-        for title in section_headers
+        title: clean_section(sections.get(title, ""), language) for title in section_headers
     }
 
     title_line = (

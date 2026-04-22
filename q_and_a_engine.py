@@ -4,7 +4,9 @@ from pathlib import Path
 
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # TODO: deprecation warning and incompatibility wuth numpy
+from langchain_community.vectorstores import (
+    Chroma,  # TODO: deprecation warning and incompatibility wuth numpy
+)
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 import my_constants
@@ -14,7 +16,8 @@ CHROMA_PERSIST_DIR = Path("chroma_db")
 
 
 def build_vectorstore_from_utterances(
-    utterances: list[tuple[str, str]], model: str,
+    utterances: list[tuple[str, str]],
+    model: str,
 ) -> Chroma:
     """Return persistent Chroma vector store updated with new transcript.
 
@@ -29,7 +32,7 @@ def build_vectorstore_from_utterances(
     text_chunks = [f"{speaker} : {text}" for speaker, text in utterances]
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    documents = splitter.create_documents(text_chunks)
+    documents = splitter.create_documents(text_chunks)  # pyright: ignore[reportUnknownMemberType]  # langchain metadatas param typed as dict[Unknown, Unknown]
 
     embeddings = OllamaEmbeddings(model=model)
 
@@ -40,7 +43,7 @@ def build_vectorstore_from_utterances(
             persist_directory=str(CHROMA_PERSIST_DIR),
         )
     else:
-        vectorstore = Chroma.from_documents(
+        vectorstore = Chroma.from_documents(  # pyright: ignore[reportUnknownMemberType]  # langchain client_settings / collection_metadata typed as Unknown
             documents=documents,
             embedding=embeddings,
             persist_directory=str(CHROMA_PERSIST_DIR),
@@ -54,7 +57,9 @@ def build_vectorstore_from_utterances(
 
 
 def generate_summary(
-    utterances: list[tuple[str, str]], language: str, model: str,
+    utterances: list[tuple[str, str]],
+    language: str,
+    model: str,
 ) -> str:
     """Return markdown-formatted summary from structured utterances.
 

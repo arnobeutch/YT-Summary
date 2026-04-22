@@ -11,7 +11,6 @@ import textwrap
 from youtube_transcript_api._api import YouTubeTranscriptApi
 from youtube_transcript_api._errors import NoTranscriptFound
 
-import my_constants
 from my_logger import my_logger
 
 
@@ -30,7 +29,9 @@ def get_youtube_transcript(video_id: str) -> str:
     try:
         transcript = transcript_list.find_transcript(["fr", "en"])
     except NoTranscriptFound:
-        my_logger.exception("NoTranscriptFound while searching transcripts in French or English", stack_info=True)
+        my_logger.exception(
+            "NoTranscriptFound while searching transcripts in French or English", stack_info=True
+        )
         return "Error: Transcript not found."
 
     fetched_transcript = transcript.fetch()
@@ -38,5 +39,3 @@ def get_youtube_transcript(video_id: str) -> str:
     # Combine text
     transcript_text = " ".join([entry.text for entry in fetched_transcript])
     return textwrap.fill(transcript_text, width=80)
-
-

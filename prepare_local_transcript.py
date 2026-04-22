@@ -1,22 +1,23 @@
+# Boundary to untyped ML deps (whisper, pyannote, torchaudio, ffmpeg). 2026-04-22:
+# suppress unknown-type reports here; keep call/argument/attribute checks on.
+# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false
 """Retrieve the text transcript from a local media file."""
 
 import os
 import tempfile
-from collections import defaultdict
 from pathlib import Path
+from typing import Any, cast
 
 import ffmpeg
 import numpy as np
+import numpy.typing as npt
 import torch.cuda
 import torchaudio
-import tqdm
 import whisper
-
-# from huggingface_hub import login
 from pyannote.audio import Pipeline
 from pyannote.core import Segment, Timeline
+from tqdm import tqdm
 
-# from typing import List, Tuple
 from my_logger import my_logger
 from my_settings import Settings
 
@@ -26,7 +27,7 @@ class TqdmProgressBar:
 
     def __init__(self, total: int) -> None:
         """Initialize the progress bar."""
-        self._bar = tqdm(total=total, unit="segment")
+        self._bar: tqdm[Any] = tqdm(total=total, unit="segment")
 
     def update(self, n: int = 1) -> None:
         """Update the progress bar by n segments."""
@@ -39,7 +40,7 @@ class TqdmProgressBar:
 
 def patch_whisper_progress_bar() -> None:
     """Monkey-patch whisper's ProgressBar with tqdm-based one."""
-    whisper.utils.ProgressBar = TqdmProgressBar
+    cast(Any, whisper).utils.ProgressBar = TqdmProgressBar
 
 
 def extract_audio(input_file: str, output_format: str = "wav") -> str:
@@ -47,11 +48,6 @@ def extract_audio(input_file: str, output_format: str = "wav") -> str:
     if not Path(input_file).exists():
         err_msg = f"File not found: {input_file}"
         raise FileNotFoundError(err_msg)
-
-    # file_ext = Path(input_file).suffix.lower()
-    # if file_ext not in [".mp4", ".webm"]:
-    #     err_msg = f"Unsupported file format: {file_ext}"
-    #     raise ValueError(err_msg)
 
     my_logger.info(f"Extracting audio from {input_file} to {output_format} format")
     with tempfile.NamedTemporaryFile(suffix=f".{output_format}", delete=False) as tmp_audio_file:
@@ -62,7 +58,7 @@ def extract_audio(input_file: str, output_format: str = "wav") -> str:
         format=output_format,
         ac=1,
         ar="16000",
-        ).run(quiet=True, overwrite_output=True)
+    ).run(quiet=True, overwrite_output=True)
     return tmp_audio_path
 
 
@@ -77,10 +73,11 @@ def detect_language(audio_file: str, model: whisper.Whisper, device: str) -> str
     audio = whisper.pad_or_trim(audio)
     mel = whisper.log_mel_spectrogram(audio).to(device)
     _, probs = model.detect_language(mel)
-    return max(probs, key=probs.get)
+    probs_dict = cast(dict[str, float], probs)
+    return max(probs_dict, key=lambda k: probs_dict[k])
 
 
-def transcribe_audio(audio_file: str, model_size: str = "base") -> tuple[str,str]:
+def transcribe_audio(audio_file: str, model_size: str = "base") -> tuple[str, str]:
     """Transcribe audio using Whisper and returns the transcribed text and the detected language."""
     my_logger.info(f"Transcribing audio file: {audio_file}")
 
@@ -94,9 +91,11 @@ def transcribe_audio(audio_file: str, model_size: str = "base") -> tuple[str,str
     my_logger.info(f"\tDetected language: {detected_lang}")
 
     result = model.transcribe(
-        audio_file, fp16=(device == "cuda"), language=detected_lang,
+        audio_file,
+        fp16=(device == "cuda"),
+        language=detected_lang,
     )
-    return result["text"], detected_lang
+    return cast(str, result["text"]), detected_lang
 
 
 def transcribe_video_file(video_file: str, model_size: str = "base") -> tuple[str, str]:
@@ -126,13 +125,10 @@ def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
         use_auth_token=HUGGINGFACE_TOKEN,
     )
     diarization = pipeline(audio_file)
-    speaker_segments = [
-        (str(label), segment) for segment, _, label in diarization.itertracks(yield_label=True)
-    ]
-    return speaker_segments  # noqa: RET504
+    return [(str(label), segment) for segment, _, label in diarization.itertracks(yield_label=True)]
 
 
-def load_audio_slice(audio_path: str, start: float, end: float) -> np.ndarray:
+def load_audio_slice(audio_path: str, start: float, end: float) -> npt.NDArray[np.floating[Any]]:
     """Load a slice of audio between `start` and `end` seconds."""
     waveform, sample_rate = torchaudio.load(audio_path)
     start_sample = int(start * sample_rate)
@@ -155,17 +151,13 @@ def group_speaker_segments(
         list: List of (speaker, merged Segment) tuples.
 
     """
-    grouped_segments = []
-    last_speaker = None
-    current_start = None
-    current_end = None
+    grouped_segments: list[tuple[str, Segment]] = []
+    last_speaker: str | None = None
+    current_start: float = 0.0
+    current_end: float = 0.0
 
     for speaker, segment in diarized_segments:
-        if (
-            speaker == last_speaker
-            and current_end is not None
-            and (segment.start - current_end) <= max_gap
-        ):
+        if speaker == last_speaker and (segment.start - current_end) <= max_gap:
             current_end = segment.end  # extend current segment
         else:
             if last_speaker is not None:
@@ -202,14 +194,16 @@ def detect_speech_segments(audio_file: str) -> Timeline:
     # - https://huggingface.co/pyannote/voice-activity-detection
     # - https://huggingface.co/pyannote/segmentation
     vad_pipeline = Pipeline.from_pretrained(
-        "pyannote/voice-activity-detection", use_auth_token=token,
+        "pyannote/voice-activity-detection",
+        use_auth_token=token,
     )
     vad_result = vad_pipeline(audio_file)
     return vad_result.get_timeline().support()
 
 
 def transcribe_audio_with_diarization(
-    audio_file: str, model_size: str = "base",
+    audio_file: str,
+    model_size: str = "base",
 ) -> tuple[str, str]:
     """Transcribe audio with speaker diarization."""
     device = get_device()
@@ -233,7 +227,7 @@ def transcribe_audio_with_diarization(
 
     # Group segments from the same speaker
     grouped_segments = group_speaker_segments(filtered_segments, max_gap=1.0)
-    full_text = []
+    full_text: list[str] = []
     MIN_SEGMENT_DURATION = 1.5  # seconds  # noqa: N806
     for speaker, segment in grouped_segments:
         # Skip segments that are too short (silence or noise)
@@ -241,10 +235,12 @@ def transcribe_audio_with_diarization(
             continue
         sliced_audio = load_audio_slice(audio_file, segment.start, segment.end)
         segment_result = model.transcribe(
-            sliced_audio, fp16=(device == "cuda"), language=language,
+            sliced_audio,
+            fp16=(device == "cuda"),
+            language=language,
         )
-        text = segment_result["text"].strip()
-        if not text:    # Skip empty transcriptions
+        text = cast(str, segment_result["text"]).strip()
+        if not text:  # Skip empty transcriptions
             continue
         full_text.append(f"{speaker}: {text}")
 
@@ -252,14 +248,16 @@ def transcribe_audio_with_diarization(
 
 
 def transcribe_video_file_with_diarization(
-    video_file: str, model_size: str = "base",
+    video_file: str,
+    model_size: str = "base",
 ) -> tuple[str, str]:
     """Full pipeline: Extract audio from video, transcribe it with diarization."""
     my_logger.info(f"Processing with diarization: {video_file}")
     audio_path = extract_audio(video_file)
     try:
         transcription, language = transcribe_audio_with_diarization(
-            audio_path, model_size=model_size,
+            audio_path,
+            model_size=model_size,
         )
     finally:
         Path(audio_path).unlink()

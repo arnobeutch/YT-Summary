@@ -93,6 +93,7 @@ reportUnusedExpression = "error"
 reportImplicitOverride = false
 reportMissingSuperCall = false
 reportIncompatibleVariableOverride = false
+reportMissingTypeStubs = false  # 2026-04-22: ML ecosystem (whisper, pyannote, torchaudio, ffmpeg, textblob, langchain) ships no stubs
 
 [dependency-groups]
 dev = [
