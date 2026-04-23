@@ -119,11 +119,22 @@ class TestParseArgs:
 
     def test_all_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(
-            ["https://y.com/watch?v=x", "--diarize", "--summarize", "--with_openai"],
+            ["https://y.com/watch?v=x", "--diarize", "--summarize", "--with-openai"],
             monkeypatch,
         )
         assert ns.diarize is True
         assert ns.summarize is True
+        assert ns.with_openai is True
+
+    def test_with_openai_canonical_form(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--with-openai"], monkeypatch)
+        assert ns.with_openai is True
+
+    def test_with_openai_legacy_underscore_still_works(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--with_openai"], monkeypatch)
         assert ns.with_openai is True
 
     def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:

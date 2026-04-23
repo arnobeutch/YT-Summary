@@ -70,7 +70,9 @@ def parse_args() -> argparse.Namespace:
         help="Output a summary of the video transcript (default: False)",
     )
     parser.add_argument(
-        "--with_openai",
+        "--with-openai",
+        "--with_openai",  # legacy alias — underscored form kept for backward compat
+        dest="with_openai",
         action="store_true",
         default=False,
         help="Use OpenAI API to summarize the transcript (default: False)",

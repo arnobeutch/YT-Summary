@@ -20,7 +20,7 @@ uv run main.py <youtube_url | path/to/file> [options]
 Examples:
 
 ```bash
-uv run main.py https://www.youtube.com/watch?v=VIDEO_ID --summarize --with_openai
+uv run main.py https://www.youtube.com/watch?v=VIDEO_ID --summarize --with-openai
 uv run main.py ./my_meeting.mp4 --diarize --summarize
 uv run main.py ./existing_transcript.txt --summarize
 ```
@@ -32,7 +32,7 @@ uv run main.py ./existing_transcript.txt --summarize
 | `-l`, `--language` | `en` or `fr` (default: `en`). Ignored for local media (auto-detected). |
 | `--diarize` | Identify speakers when transcribing local media (default: False). |
 | `-s`, `--summarize` | Produce a summary (default: False). |
-| `--with_openai` | Summarize via OpenAI API instead of local RAG (default: False). |
+| `--with-openai` | Summarize via OpenAI API instead of local RAG (default: False). `--with_openai` still works as a legacy alias. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
 
 ## Configuration
