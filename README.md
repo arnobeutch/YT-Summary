@@ -32,7 +32,12 @@ uv run main.py ./existing_transcript.txt --summarize
 | `-l`, `--language` | `en` or `fr` (default: `en`). Ignored for local media (auto-detected). |
 | `--diarize` | Identify speakers when transcribing local media (default: False). |
 | `-s`, `--summarize` | Produce a summary (default: False). |
-| `--with-openai` | Summarize via OpenAI API instead of local RAG (default: False). `--with_openai` still works as a legacy alias. |
+| `--with-openai` | Shortcut for `--llm-provider openai` (default: False). `--with_openai` still works as a legacy alias. |
+| `--model-size` | Whisper model: `tiny`, `base`, `small`, `medium`, `large`. Default from `WHISPER_MODEL_SIZE` env or `small`. |
+| `--llm-provider` | `openai`, `openrouter`, `ollama`. Default from `LLM_PROVIDER` env or `openai`. |
+| `--llm-model` | Model name for the chosen provider. Default from `LLM_MODEL` env or per-provider default. |
+| `--output-dir` | Where outputs land. Default from `OUTPUT_DIR` env or `./results`. |
+| `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
 
 ## Configuration

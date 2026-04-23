@@ -75,7 +75,55 @@ def parse_args() -> argparse.Namespace:
         dest="with_openai",
         action="store_true",
         default=False,
-        help="Use OpenAI API to summarize the transcript (default: False)",
+        help=(
+            "Shortcut for --llm-provider openai (default: False). "
+            "Kept for backward compatibility — prefer --llm-provider."
+        ),
+    )
+    parser.add_argument(
+        "--model-size",
+        dest="model_size",
+        choices={"tiny", "base", "small", "medium", "large"},
+        default=None,
+        help=(
+            "Whisper model size for local transcription. "
+            "Default: env WHISPER_MODEL_SIZE, or 'small'."
+        ),
+    )
+    parser.add_argument(
+        "--llm-provider",
+        dest="llm_provider",
+        choices={"openai", "openrouter", "ollama"},
+        default=None,
+        help=(
+            "LLM backend for summarization. "
+            "Default: env LLM_PROVIDER, or 'openai'. "
+            "Overrides --with-openai if both are given."
+        ),
+    )
+    parser.add_argument(
+        "--llm-model",
+        dest="llm_model",
+        default=None,
+        help=(
+            "Specific model name for the chosen provider (e.g. 'gpt-4o', "
+            "'anthropic/claude-4.7-sonnet', 'gemma4:e4b'). "
+            "Default: env LLM_MODEL, or the provider's default."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        type=Path,
+        default=None,
+        help="Where transcripts and summaries land. Default: env OUTPUT_DIR, or ./results.",
+    )
+    parser.add_argument(
+        "--downloads-dir",
+        dest="downloads_dir",
+        type=Path,
+        default=None,
+        help="Where downloaded YT audio is cached. Default: env DOWNLOADS_DIR, or ./downloads.",
     )
     parser.add_argument(
         "-d",

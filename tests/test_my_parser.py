@@ -137,6 +137,72 @@ class TestParseArgs:
         ns = _run_parser(["https://y.com/watch?v=x", "--with_openai"], monkeypatch)
         assert ns.with_openai is True
 
+    def test_backend_flags_default_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Backend/config flags default to None so the resolver at use-site can
+        # fall back to Settings (and thus env vars).
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.model_size is None
+        assert ns.llm_provider is None
+        assert ns.llm_model is None
+        assert ns.output_dir is None
+        assert ns.downloads_dir is None
+
+    def test_model_size_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--model-size", "medium"],
+            monkeypatch,
+        )
+        assert ns.model_size == "medium"
+
+    def test_model_size_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(["https://y.com/watch?v=x", "--model-size", "huge"], monkeypatch)
+
+    def test_llm_provider_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--llm-provider", "openrouter"],
+            monkeypatch,
+        )
+        assert ns.llm_provider == "openrouter"
+
+    def test_llm_provider_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(
+                ["https://y.com/watch?v=x", "--llm-provider", "together"],
+                monkeypatch,
+            )
+
+    def test_llm_model_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--llm-model", "anthropic/claude-4.7-sonnet"],
+            monkeypatch,
+        )
+        assert ns.llm_model == "anthropic/claude-4.7-sonnet"
+
+    def test_output_dir_override(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        target = tmp_path / "out"
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--output-dir", str(target)],
+            monkeypatch,
+        )
+        assert ns.output_dir == target
+
+    def test_downloads_dir_override(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        target = tmp_path / "dl"
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--downloads-dir", str(target)],
+            monkeypatch,
+        )
+        assert ns.downloads_dir == target
+
     def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
             _run_parser(["not-a-url-nor-file"], monkeypatch)
