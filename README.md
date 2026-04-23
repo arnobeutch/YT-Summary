@@ -79,6 +79,6 @@ uv run pre-commit install
 
 `git commit` will then run ruff + pyright + pytest on staged Python files.
 
-## To do
+## Roadmap
 
-See [TODO.md](TODO.md).
+Grooming backlog with completed items: [TODO.md](TODO.md).

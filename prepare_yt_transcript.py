@@ -1,8 +1,4 @@
-"""Get, format and analyze (sentiment) YouTube transcript.
-
-TODO: use spaCy to fix transcript errors or nltk + difflib to get closest phonemes
-TODO: identify speakers (a.k.a. speaker diarization) in transcript using pyannote (get audio with yt-dlp or youtube-dl)
-"""
+"""Get, format and analyze (sentiment) YouTube transcript."""
 
 import json
 import textwrap
@@ -31,7 +27,6 @@ def get_youtube_transcript(video_id: str) -> str:
         return "Error: Transcript unavailable."
     # filter for transcripts, french first, otherwise english
     # note: youtube_transcript_api always chooses manually created transcripts over automatically created ones
-    # TODO: identify the languange of the transcript returned
     try:
         transcript = transcript_list.find_transcript(["fr", "en"])
     except NoTranscriptFound:

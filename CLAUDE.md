@@ -23,6 +23,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 | `my_constants.py` | Prompts (`OPENAI_PROMPT_EN/FR`, `RAG_FRENCH/ENGLISH_PROMPT`, `RAG_SECTION_TITLES`) + polarity thresholds. |
 | `my_settings.py` | Frozen `Settings` dataclass + stdlib `.env` loader (replaces the old `python-dotenv` dep). |
 | `prepare_yt_transcript.py` | YouTube Transcript API wrapper. |
+| `prepare_yt_audio.py` | yt-dlp-based audio download + video-id extraction + title metadata (used for the captionless-video fallback path). |
 | `prepare_local_transcript.py` | ffmpeg → whisper transcription, optional pyannote diarization. |
 | `preprocess_transcript.py` | Cleanup + speaker-name heuristics. |
 | `summarize_transcript.py` | OpenAI and RAG (langchain + Ollama + ChromaDB) summarizers. |
@@ -40,6 +41,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 
 ## Known state
 
-- **App modules not yet strict-mode clean.** `prepare_local_transcript.py`, `summarize_transcript.py`, etc. rely on untyped deps (`torch`, `whisper`, `pyannote`, `langchain`, `chromadb`) and will surface pyright/ruff findings when edited. The quality hook will point them out; apply `.claude/rules/python_strict.md` patterns (cast, parametrized generics, tqdm variable-split) as they come up.
-- `results/` and `chroma_db/` are runtime outputs (gitignored).
-- `.env` holds `OPENAI_API_KEY` and any `LOG_LEVEL` override.
+- **App modules + tests are ruff-ALL + pyright-strict clean.** `just all` runs green (158 tests, 2 deselected integration). Boundary with untyped ML deps (`whisper`, `pyannote`, `torchaudio`, `ffmpeg`, `yt-dlp`, `langchain`, `chromadb`) is handled via file-level `# pyright: reportUnknown... = false` headers in `prepare_local_transcript.py` and `prepare_yt_audio.py`, and explicit `cast(Any, ...)` at call sites elsewhere. Apply `.claude/rules/python_strict.md` patterns when extending.
+- `results/`, `downloads/`, and `chroma_db/` are runtime outputs (gitignored).
+- `.env` holds `OPENAI_API_KEY`, optionally `HUGGINGFACE_TOKEN` (for diarization), and any `LOG_LEVEL` override.
+- Improvement plan lives at `/home/mprz/.claude/plans/ok-now-that-we-inherited-pascal.md`. In-flight work is tracked there; `TODO.md` is the grooming backlog.

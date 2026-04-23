@@ -63,7 +63,6 @@ def summarize_transcript_with_rag(
         filename_stem=video_title,
         language=language,
     )
-    # TODO: add sentiment to summary
     suffix = "résumé" if language == "fr" else "summary"
     output_filename = f"{video_title} - {suffix}.md"
     output_path = Path("results") / output_filename

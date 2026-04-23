@@ -4,9 +4,7 @@ from pathlib import Path
 
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import (
-    Chroma,  # TODO: deprecation warning and incompatibility wuth numpy
-)
+from langchain_community.vectorstores import Chroma
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
 import my_constants
