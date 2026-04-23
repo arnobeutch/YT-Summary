@@ -37,14 +37,22 @@ uv run main.py ./existing_transcript.txt --summarize
 
 ## Configuration
 
-Runtime settings live in `my_settings.py` (`Settings.from_env()` reads `.env` + `os.environ`). Copy `.env.example` to `.env` and add:
+Runtime settings live in `my_settings.py` (`Settings.from_env()` reads `.env` + `os.environ`; shell env wins over `.env`). Copy `.env.example` to `.env` and adjust. `.env` is gitignored.
 
-```text
-LOG_LEVEL=INFO
-OPENAI_API_KEY=sk-...   # only required for --with_openai
-```
-
-`.env` is gitignored.
+| Env var | Default | Purpose |
+| --- | --- | --- |
+| `LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR`. `-d`/`--debug` forces DEBUG. |
+| `OPENAI_API_KEY` | — | Required for `--with-openai` (or `--llm-provider openai`). |
+| `OPENROUTER_API_KEY` | — | Required for `--llm-provider openrouter`. |
+| `HUGGINGFACE_TOKEN` | — | Required for `--diarize` (pyannote speaker-diarization-3.1 + voice-activity-detection gated models). |
+| `LLM_PROVIDER` | `openai` | One of `openai`, `openrouter`, `ollama` (CLI flag overrides). |
+| `LLM_MODEL` | provider default | E.g. `gpt-4o`, `anthropic/claude-4.7-sonnet`, `mistral` (CLI flag overrides). |
+| `OPENAI_MODEL` | `gpt-4o` | Model for the OpenAI provider. |
+| `OLLAMA_MODEL` | `mistral` | Model for the local Ollama/RAG provider. |
+| `WHISPER_MODEL_SIZE` | `small` | `tiny`, `base`, `small`, `medium`, `large`. |
+| `OUTPUT_DIR` | `results` | Where transcripts and summaries land. |
+| `DOWNLOADS_DIR` | `downloads` | Where downloaded YT audio is cached. |
+| `WRAP_WIDTH` | `80` | Soft-wrap width for non-diarized transcripts (words are never split). |
 
 ## Logging
 

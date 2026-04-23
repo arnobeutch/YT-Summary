@@ -3,15 +3,12 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 import pytest
 
 import my_settings
 from my_settings import Settings
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 class TestLoadDotenv:
@@ -80,22 +77,101 @@ class TestLoadDotenv:
         assert os.environ["URL"] == "https://x.com/?a=1&b=2"
 
 
+_ALL_ENV_KEYS = (
+    "LOG_LEVEL",
+    "OPENAI_API_KEY",
+    "OPENROUTER_API_KEY",
+    "HUGGINGFACE_TOKEN",
+    "LLM_PROVIDER",
+    "LLM_MODEL",
+    "OPENAI_MODEL",
+    "OLLAMA_MODEL",
+    "WHISPER_MODEL_SIZE",
+    "OUTPUT_DIR",
+    "DOWNLOADS_DIR",
+    "WRAP_WIDTH",
+)
+
+
+def _clean_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)  # no .env in tmp_path
+    for key in _ALL_ENV_KEYS:
+        monkeypatch.delenv(key, raising=False)
+
+
 class TestSettingsFromEnv:
     def test_default_log_level(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.chdir(tmp_path)  # no .env in tmp_path
-        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        _clean_env(monkeypatch, tmp_path)
         s = Settings.from_env()
         assert s.log_level == "INFO"
 
     def test_respects_env_var(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.chdir(tmp_path)
+        _clean_env(monkeypatch, tmp_path)
         monkeypatch.setenv("LOG_LEVEL", "DEBUG")
         s = Settings.from_env()
         assert s.log_level == "DEBUG"
 
     def test_loads_from_dotenv(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-        monkeypatch.chdir(tmp_path)
-        monkeypatch.delenv("LOG_LEVEL", raising=False)
+        _clean_env(monkeypatch, tmp_path)
         (tmp_path / ".env").write_text("LOG_LEVEL=WARNING\n")
         s = Settings.from_env()
         assert s.log_level == "WARNING"
+
+    def test_full_config_defaults(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        _clean_env(monkeypatch, tmp_path)
+        s = Settings.from_env()
+        assert s.openai_api_key is None
+        assert s.openrouter_api_key is None
+        assert s.huggingface_token is None
+        assert s.llm_provider == "openai"
+        assert s.llm_model is None
+        assert s.openai_model == "gpt-4o"
+        assert s.ollama_model == "mistral"
+        assert s.whisper_model_size == "small"
+        assert s.output_dir == Path("results")
+        assert s.downloads_dir == Path("downloads")
+        assert s.wrap_width == 80
+
+    def test_full_config_overrides(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        _clean_env(monkeypatch, tmp_path)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+        monkeypatch.setenv("OPENROUTER_API_KEY", "or-test")
+        monkeypatch.setenv("HUGGINGFACE_TOKEN", "hf-test")
+        monkeypatch.setenv("LLM_PROVIDER", "openrouter")
+        monkeypatch.setenv("LLM_MODEL", "anthropic/claude-4.7-sonnet")
+        monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+        monkeypatch.setenv("OLLAMA_MODEL", "gemma4:e4b")
+        monkeypatch.setenv("WHISPER_MODEL_SIZE", "medium")
+        monkeypatch.setenv("OUTPUT_DIR", "out")
+        monkeypatch.setenv("DOWNLOADS_DIR", "dl")
+        monkeypatch.setenv("WRAP_WIDTH", "100")
+        s = Settings.from_env()
+        assert s.openai_api_key == "sk-test"
+        assert s.openrouter_api_key == "or-test"
+        assert s.huggingface_token == "hf-test"
+        assert s.llm_provider == "openrouter"
+        assert s.llm_model == "anthropic/claude-4.7-sonnet"
+        assert s.openai_model == "gpt-4o-mini"
+        assert s.ollama_model == "gemma4:e4b"
+        assert s.whisper_model_size == "medium"
+        assert s.output_dir == Path("out")
+        assert s.downloads_dir == Path("dl")
+        assert s.wrap_width == 100
+
+    def test_empty_string_env_treated_as_unset(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        _clean_env(monkeypatch, tmp_path)
+        monkeypatch.setenv("OPENAI_API_KEY", "")
+        s = Settings.from_env()
+        assert s.openai_api_key is None

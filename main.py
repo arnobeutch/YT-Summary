@@ -41,7 +41,7 @@ def main() -> None:
     """Retrieve transcript and analyze."""
     args = my_parser.parse_args()
     initialize_logger(args)
-    settings = Settings.from_env()
+    settings = Settings.from_env()  # seeds os.environ from .env
 
     my_logger.info(f"Script called with the following arguments: {vars(args)}")
     my_logger.debug(f"Loaded settings: {settings}")

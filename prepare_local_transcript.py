@@ -19,7 +19,6 @@ from pyannote.core import Segment, Timeline
 from tqdm import tqdm
 
 from my_logger import my_logger
-from my_settings import Settings
 
 
 class TqdmProgressBar:
@@ -110,11 +109,14 @@ def transcribe_video_file(video_file: str, model_size: str = "base") -> tuple[st
 
 
 def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
-    """Diarize speakers in the audio file using PyAnnote."""
+    """Diarize speakers in the audio file using PyAnnote.
+
+    Reads ``HUGGINGFACE_TOKEN`` from the process env — caller is expected to
+    have populated it (e.g. via ``Settings.from_env()``).
+    """
     my_logger.info(f"Diarizing speakers in: {audio_file}")
-    Settings.from_env()  # populate os.environ from .env (HUGGINGFACE_TOKEN etc.)
-    HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # noqa: N806
-    if not HUGGINGFACE_TOKEN:
+    hf_token = os.getenv("HUGGINGFACE_TOKEN")
+    if not hf_token:
         err_msg = "Missing Hugging Face token in HUGGINGFACE_TOKEN env variable"
         raise OSError(err_msg)
     # Needs token with access to pyannote models:
@@ -122,7 +124,7 @@ def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
     # - https://huggingface.co/pyannote/segmentation-3.0
     pipeline = Pipeline.from_pretrained(
         "pyannote/speaker-diarization-3.1",
-        use_auth_token=HUGGINGFACE_TOKEN,
+        use_auth_token=hf_token,
     )
     diarization = pipeline(audio_file)
     return [(str(label), segment) for segment, _, label in diarization.itertracks(yield_label=True)]
@@ -177,6 +179,9 @@ def group_speaker_segments(
 def detect_speech_segments(audio_file: str) -> Timeline:
     """Run voice activity detection (VAD) and return speech regions as a Timeline.
 
+    Reads ``HUGGINGFACE_TOKEN`` from the process env — caller is expected to
+    have populated it (e.g. via ``Settings.from_env()``).
+
     Args:
         audio_file (str): Path to the audio file.
 
@@ -184,7 +189,6 @@ def detect_speech_segments(audio_file: str) -> Timeline:
         pyannote.core.Timeline: Detected speech segments.
 
     """
-    Settings.from_env()
     token = os.getenv("HUGGINGFACE_TOKEN")
     if not token:
         err_msg = "Missing Hugging Face token in HUGGINGFACE_TOKEN env variable"
