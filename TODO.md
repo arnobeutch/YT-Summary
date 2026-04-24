@@ -2,55 +2,20 @@
 
 Planned improvements, grouped by theme. Items are unordered within each group unless they have an explicit dependency.
 
-## Design refactors
-
-- Extract per-source handlers from `main.py` into `_handle_url` / `_handle_media` / `_handle_text` returning a `Transcript` dataclass; shrink `main()` to a tiny orchestrator.
-- Raise `TranscriptUnavailable` from `get_youtube_transcript` instead of returning `"Error: ..."` strings; drop the `"Error" in transcript` string-match in `main.py`.
-- Implement the full language-selection decision tree (see README "Language selection" once written). `--language` is a preference hint, not a hard override; the summary follows the source's language. Priority: manual captions beat auto across languages.
-- Promote `Settings` to the real config object — add `openai_api_key`, `openrouter_api_key`, `huggingface_token`, `llm_provider`, `llm_model`, `whisper_model_size`, `output_dir`, `downloads_dir`, `wrap_width`. Read once at startup; stop calling `Settings.from_env()` for its side effects in every module.
-- Introduce a `Transcript` dataclass (`text, language, source, title, diarized, segments?`) and replace the tuple returns from `transcribe_*` functions.
-- Unify transcribe entry points — single `transcribe(input_path, *, diarize, model_size)` that auto-detects audio vs. video by extension. Halves the current 4-function surface.
-- Summarizer Protocol — `OpenAISummarizer`, `OpenRouterSummarizer`, `RagSummarizer` behind a shared interface; sentiment applied in the base so both backends emit it.
-- Unify prompt templates — collapse the near-identical EN/FR pairs into one template + a dict of lang-varying phrases.
-- Rename `RAG_SECTION_TITLES` keys from French literals (`"Sujet"`, `"Principaux enseignements"`, ...) to neutral (`topic`, `hashtags`, `takeaways`, `qa`, `decisions`, `actions`). Language becomes a presentation concern only.
-- Cache the whisper model across calls in-process (module-level dict keyed by `(model_size, device)`).
-- Consolidate filename sanitization — always apply `_sanitize_filename` before writing, not just for the URL branch.
-- Normalize flag style — rename `--with_openai` to `--with-openai` (keep underscore as a deprecated alias).
-
-## Features / CLI options
-
-- `--transcript-only` short-circuits before summarization.
-- `--model-size {tiny,base,small,medium,large}` (default via `Settings`). Today's code hardcodes `"small"` in `main.py` and `"base"` in `prepare_local_transcript.py` — three values for one knob.
-- `--llm-provider {openai,openrouter,ollama}` + `--llm-model NAME`.
-- `--output-dir PATH` (default `./results`) and `--downloads-dir PATH` (default `./downloads`).
-- Smart caching: skip download if `downloads/<id>.wav` exists; skip transcription if `results/<title> transcript.txt` exists. `--force` overrides.
-- Subtitle / timestamped output — emit `.srt` + `.vtt` alongside `.txt` from whisper segments (`--subtitles`).
-- Batch mode — multiple positional inputs (`main.py a.mp4 b.mp4 URL`).
-- API-key preflight — fail fast when `--summarize --llm-provider openai` is set but `OPENAI_API_KEY` is missing (not mid-pipeline after a 10-min transcription).
-- GPU-not-detected warning when `nvidia-smi` works but `torch.cuda.is_available()` returns False.
-- Two summary scenarios + autodetect (`--summary-mode {meeting,source,auto}`):
-  - `meeting`: topic, hashtags, takeaways, Q&A, decisions, action items.
-  - `source`: TL;DR, key takeaways, facts vs. opinion vs. speculation, alternatives / counterpoints, overall information-quality / reliability score.
-  - `auto`: speaker count (from diarization) → else opinion-marker density → else `source`.
-- `--summary-style {brief,detailed,bullets,prose}` orthogonal to `--summary-mode`.
-- OpenRouter LLM backend — reuses the OpenAI SDK with `base_url="https://openrouter.ai/api/v1"`. `--llm-model` accepts provider-prefixed names (`minimax/minimax-2.7`, `moonshotai/kimi-k2`, `anthropic/claude-4.7-sonnet`, ...).
-- Replace `youtube_transcript_api` with `yt-dlp` for captions (we already use yt-dlp for audio). yt-dlp separates manual vs auto captions cleanly, which the language-selection tree needs.
-
 ## Summary polish
 
-- Add sentiment to RAG summaries too (currently only the OpenAI path emits it). Falls out of the Summarizer Protocol refactor.
+- Add sentiment to RAG summaries too (currently only the OpenAI path emits it).
 - Unify OpenAI and RAG output format — both should emit structured sections (better Obsidian integration). Today OpenAI writes one-block markdown while RAG writes sectioned.
+- `--summary-style {brief,detailed,bullets,prose}` orthogonal to `--summary-mode`.
 
 ## RAG backend hygiene
 
-- Replace `langchain_community.vectorstores.Chroma` with the `langchain-chroma` package. Fixes the deprecation warning and the numpy incompatibility.
 - Review chunking params — `chunk_size=500, chunk_overlap=50` on diarized transcripts yields one-doc-per-utterance. Either bypass the splitter for already-segmented input, or merge utterances up to `chunk_size`.
 
-## Known constants to expose as Settings / CLI
+## Design refactors (deferred)
 
-- `MIN_SEGMENT_DURATION = 1.5` (in `transcribe_audio_with_diarization`).
-- `max_gap=1.0` in `group_speaker_segments`.
-- `_WRAP_WIDTH = 80` in `main.py`.
+- Unify prompt templates — collapse the near-identical EN/FR pairs into one template + a dict of lang-varying phrases.
+- Rename `RAG_SECTION_TITLES` keys from French literals (`"Sujet"`, `"Principaux enseignements"`, ...) to neutral (`topic`, `hashtags`, `takeaways`, `qa`, `decisions`, `actions`). Language becomes a presentation concern only.
 
 ## Deferred research (long-horizon)
 
@@ -73,7 +38,6 @@ Planned improvements, grouped by theme. Items are unordered within each group un
 - **Feature-flag driven builds** (`[summarize]`, `[diarize]`, `[openrouter]` extras). Enables the packaged-binary plan cheaply and makes contributor onboarding lighter.
 - **Context-file support** for source-summary mode (`--context-file path.txt` appends extra material to the LLM prompt).
 - **Claim-tagging output** in source-mode — tag each claim `{factual | opinion | speculation}` with confidence.
-- **Dry-run mode** (`--dry-run`) — print the planned pipeline (caption source, fallback need, model, output dir) without doing work.
 - **"Auto" model-size** — pick `tiny`/`base`/`small`/`medium` from `(hardware, audio duration)`.
 - **Chapter / TOC extraction** from yt-dlp's `chapters` field, with `?t=<ss>` deep-links.
 - **`langdetect` replacement survey** — only if `langdetect` proves unreliable on short transcripts; candidate: `lingua-py`.
@@ -87,3 +51,17 @@ Planned improvements, grouped by theme. Items are unordered within each group un
 - 2026-04-22 — App modules + tests brought up to ruff-ALL + pyright-strict clean. `just all` runs green.
 - 2026-04-22 — YouTube captionless-video fallback (yt-dlp audio download + whisper transcription) when no captions are available; handles `TranscriptsDisabled`, empty XML payloads, and short-link / embed / shorts URL forms.
 - 2026-04-22 — Transcripts soft-wrapped at 80 chars without breaking words when written to disk.
+- 2026-04-24 — CLI flag `--with-openai` normalized (hyphen canonical; underscore kept as deprecated alias).
+- 2026-04-24 — `Settings` promoted to full config dataclass (all keys, single startup read, `.env` + env override).
+- 2026-04-24 — `--model-size`, `--llm-provider`, `--llm-model`, `--output-dir`, `--downloads-dir` CLI flags.
+- 2026-04-24 — `TranscriptUnavailableError` exception replaces string-typed sentinel returns.
+- 2026-04-24 — `youtube_transcript_api` replaced with yt-dlp for captions (dep dropped).
+- 2026-04-24 — Per-source handlers extracted from `main.py` (`handlers.py`); `Transcript` dataclass introduced.
+- 2026-04-24 — Full language-selection ladder (manual > auto; requested > en > other; see README).
+- 2026-04-24 — Pluggable Summarizer Protocol + OpenRouter backend + sentiment everywhere.
+- 2026-04-24 — `--summary-mode {meeting,source,auto}` with autodetect heuristic.
+- 2026-04-24 — Smart caching: skip download/transcription when outputs exist; `--force` bypasses.
+- 2026-04-24 — `--subtitles` (.srt + .vtt from whisper segments); `--transcript-only`.
+- 2026-04-24 — Whisper model cache in-process (`_MODEL_CACHE` keyed by model+device); `MIN_SEGMENT_DURATION` and `_MAX_SPEAKER_GAP` promoted to module constants; dead wrappers removed.
+- 2026-04-24 — Batch mode (`nargs="+"` multiple inputs), `--dry-run`, GPU-not-detected warning, API-key preflight.
+- 2026-04-24 — `langchain_community.vectorstores.Chroma` → `langchain-chroma`.
