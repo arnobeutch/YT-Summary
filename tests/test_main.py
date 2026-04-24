@@ -132,9 +132,11 @@ class TestDispatcher:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
+        # An API-key preflight runs before the pipeline; stub it out.
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.make_summarizer"),  # preflight ok
             patch("main.handlers.handle_url", return_value=_make_transcript()),
             patch("main.handlers.write_transcript_file"),
             patch("main.handlers.summarize") as summ,

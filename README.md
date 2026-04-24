@@ -7,8 +7,8 @@ Summarize YouTube videos, local audio/video files, or existing text transcripts.
 - `yt-dlp` for both YouTube captions (en / fr; manual preferred over auto) and audio download for the captionless-video fallback.
 - `whisper` transcription for local media (`ffmpeg-python` for audio extraction).
 - Optional speaker diarization via `pyannote-audio`.
-- `textblob` sentiment/polarity.
-- OpenAI API summary (`--with_openai`) or local RAG summary via `langchain` + `langchain-ollama` + `chromadb` (default, uses `mistral`).
+- `textblob` sentiment/polarity (applied to every summary, regardless of backend).
+- Pluggable LLM backends: **OpenAI** (default), **OpenRouter** (Minimax, Kimi, Claude, Gemini, …), **Ollama** (local RAG via `langchain` + `langchain-ollama` + `chromadb`).
 - Markdown-formatted summary output.
 
 ## Usage

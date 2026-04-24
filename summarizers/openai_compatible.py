@@ -1,0 +1,92 @@
+"""Shared base for OpenAI-API-compatible backends (OpenAI, OpenRouter, ...)."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+import openai
+from openai import OpenAI
+
+import my_constants
+from markdown_writer import simple_format_markdown
+from my_logger import my_logger
+
+from .base import analyze_sentiment
+
+if TYPE_CHECKING:
+    from model import Transcript
+    from my_settings import Settings
+
+
+class OpenAICompatibleSummarizer:
+    """Base for backends that speak the OpenAI Chat Completions protocol.
+
+    Subclasses set ``api_key`` and ``base_url`` instance attributes via
+    ``__init__``; the ``OpenAI`` client is built once per ``summarize`` call
+    using those attrs.
+    """
+
+    DEFAULT_SYSTEM_PROMPT = "You provide concise and insightful summaries."
+    api_key: str | None = None
+    base_url: str | None = None
+
+    def __init__(self, settings: Settings) -> None:
+        """Bind the Settings instance for later access during ``summarize``."""
+        self.settings = settings
+
+    def _build_client(self) -> OpenAI:
+        return OpenAI(api_key=self.api_key, base_url=self.base_url)
+
+    def _model_name(self) -> str:
+        """Return the model id sent in the API call (CLI/env overrides win)."""
+        return self.settings.llm_model or self.settings.openai_model
+
+    def summarize(self, transcript: Transcript, *, input_path: str) -> None:
+        """Send the prompt to the API and write the resulting summary to disk."""
+        if transcript.language == "fr":
+            prompt = my_constants.OPENAI_PROMPT_FR + transcript.text
+        elif transcript.language == "en":
+            prompt = my_constants.OPENAI_PROMPT_EN + transcript.text
+        else:
+            err_msg = f"Summarizer language not supported: {transcript.language!r}"
+            raise ValueError(err_msg)
+
+        sentiment = analyze_sentiment(transcript.text)
+
+        try:
+            client = self._build_client()
+            response = client.chat.completions.create(
+                model=self._model_name(),
+                messages=[
+                    {"role": "system", "content": self.DEFAULT_SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+        except openai.AuthenticationError:
+            my_logger.exception("AuthenticationError while performing API request")
+            return
+        except openai.APITimeoutError:
+            my_logger.exception("Timeout while performing API request")
+            return
+        except openai.OpenAIError:
+            my_logger.exception(
+                "API error — is the relevant API key set in .env or the environment?",
+            )
+            return
+
+        content = response.choices[0].message.content
+        if content is None:
+            my_logger.error("LLM returned empty content")
+            return
+
+        markdown_output = simple_format_markdown(
+            transcript.title,
+            input_path,
+            content,
+            sentiment,
+            transcript.language,
+        )
+        out_path = self.settings.output_dir / f"{transcript.title}.md"
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(markdown_output, encoding="utf8")
+        my_logger.info(f"Summary written to {out_path}")

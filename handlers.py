@@ -13,34 +13,21 @@ this file — ``langdetect``'s public ``detect`` returns an annotated-but-
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 from langdetect import LangDetectException, detect
 
 import prepare_local_transcript as plt
 import prepare_yt_audio as pya
 import prepare_yt_transcript as pytt
-import summarize_transcript as st
 from formatting import sanitize_filename, wrap_transcript
 from language import derive_summary_language, derive_whisper_summary_language
+from model import Transcript
 from my_logger import my_logger
 from my_settings import Settings
 from prepare_yt_transcript import TranscriptUnavailableError
-
-TranscriptSource = Literal["yt_manual", "yt_auto", "whisper", "file"]
-
-
-@dataclass(frozen=True)
-class Transcript:
-    """In-memory representation of a transcript ready to be written / summarized."""
-
-    text: str
-    language: str  # the *summary* language, derived from source
-    title: str
-    source: TranscriptSource
-    diarized: bool
+from summarizers import make_summarizer
 
 
 def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
@@ -167,18 +154,6 @@ def write_transcript_file(transcript: Transcript, settings: Settings) -> Path:
 
 
 def summarize(transcript: Transcript, args: argparse.Namespace, settings: Settings) -> None:
-    """Dispatch to the OpenAI or RAG summarizer."""
-    if args.with_openai:
-        st.summarize_transcript_with_openai(
-            transcript.text,
-            args.input_path,
-            transcript.title,
-            transcript.language,
-        )
-    else:
-        st.summarize_transcript_with_rag(
-            transcript.text,
-            transcript.title,
-            transcript.language,
-            model=settings.llm_model or settings.ollama_model,
-        )
+    """Dispatch to the configured Summarizer backend."""
+    summarizer = make_summarizer(settings)
+    summarizer.summarize(transcript, input_path=args.input_path)

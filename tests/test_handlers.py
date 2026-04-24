@@ -345,33 +345,16 @@ class TestWriteTranscriptFile:
 
 
 class TestSummarize:
-    def test_openai_dispatch(self, tmp_path: Path) -> None:
+    def test_dispatches_through_factory(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         t = Transcript(
-            text="body", language="en", title="title", source="yt_manual", diarized=False
+            text="body",
+            language="en",
+            title="title",
+            source="yt_manual",
+            diarized=False,
         )
-        with patch("handlers.st.summarize_transcript_with_openai") as openai_summ:
-            summarize(t, _args(input_path="u", with_openai=True), s)
-        openai_summ.assert_called_once_with("body", "u", "title", "en")
-
-    def test_rag_dispatch_uses_settings_default_model(self, tmp_path: Path) -> None:
-        s = _settings(output_dir=tmp_path / "out", ollama_model="mistral")
-        t = Transcript(
-            text="body", language="en", title="title", source="yt_manual", diarized=False
-        )
-        with patch("handlers.st.summarize_transcript_with_rag") as rag:
-            summarize(t, _args(input_path="u", with_openai=False), s)
-        rag.assert_called_once_with("body", "title", "en", model="mistral")
-
-    def test_rag_dispatch_settings_llm_model_overrides(self, tmp_path: Path) -> None:
-        s = _settings(
-            output_dir=tmp_path / "out",
-            ollama_model="mistral",
-            llm_model="gemma4:e4b",
-        )
-        t = Transcript(
-            text="body", language="en", title="title", source="yt_manual", diarized=False
-        )
-        with patch("handlers.st.summarize_transcript_with_rag") as rag:
-            summarize(t, _args(input_path="u", with_openai=False), s)
-        rag.assert_called_once_with("body", "title", "en", model="gemma4:e4b")
+        fake = MagicMock()
+        with patch("handlers.make_summarizer", return_value=fake):
+            summarize(t, _args(input_path="u"), s)
+        fake.summarize.assert_called_once_with(t, input_path="u")

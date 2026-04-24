@@ -10,19 +10,26 @@ import handlers
 import my_parser
 from my_logger import initialize_logger, my_logger
 from my_settings import Settings
+from summarizers import MissingAPIKeyError, make_summarizer
 
 if TYPE_CHECKING:
     import argparse
 
 
 def _apply_cli_overrides(args: argparse.Namespace, base: Settings) -> Settings:
-    """Return a new ``Settings`` with CLI-provided values overlaid on ``base``."""
+    """Return a new ``Settings`` with CLI-provided values overlaid on ``base``.
+
+    ``--with-openai`` is treated as a shortcut for ``--llm-provider openai``.
+    """
+    provider = args.llm_provider or base.llm_provider
+    if args.with_openai:
+        provider = "openai"
     return dataclasses.replace(
         base,
         output_dir=args.output_dir or base.output_dir,
         downloads_dir=args.downloads_dir or base.downloads_dir,
         whisper_model_size=args.model_size or base.whisper_model_size,
-        llm_provider=args.llm_provider or base.llm_provider,
+        llm_provider=provider,
         llm_model=args.llm_model or base.llm_model,
     )
 
@@ -35,6 +42,15 @@ def main() -> None:
 
     my_logger.info(f"Script called with the following arguments: {vars(args)}")
     my_logger.debug(f"Loaded settings: {settings}")
+
+    # Preflight the LLM backend BEFORE the slow transcription pipeline so a
+    # missing API key fails in seconds, not after a 10-minute whisper run.
+    if args.summarize:
+        try:
+            make_summarizer(settings)
+        except MissingAPIKeyError as exc:
+            my_logger.error(str(exc))
+            sys.exit(2)
 
     if args.is_url:
         transcript = handlers.handle_url(args, settings)
