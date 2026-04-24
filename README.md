@@ -40,6 +40,8 @@ uv run main.py ./existing_transcript.txt --summarize
 | `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
 | `--summary-mode` | `meeting` (multi-speaker discussion), `source` (lecture / article / commentary — tags facts vs opinion vs speculation), or `auto` (heuristic). Default from `SUMMARY_MODE` env or `auto`. |
 | `--force` | Re-download audio and re-transcribe even when a cached `.wav` or transcript already exists. |
+| `--subtitles` | Also write `.srt` and `.vtt` subtitle files alongside the `.txt` transcript (whisper transcription only — YT captions and diarized output don't carry per-cue timestamps). |
+| `--transcript-only` | Stop after writing transcript (and subtitles); skip summarization. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
 
 ### Caching

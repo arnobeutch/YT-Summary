@@ -135,6 +135,26 @@ def parse_args() -> argparse.Namespace:
         help="Re-download audio and re-transcribe even if cached outputs exist.",
     )
     parser.add_argument(
+        "--subtitles",
+        action="store_true",
+        default=False,
+        help=(
+            "Also write .srt and .vtt subtitle files alongside the .txt "
+            "transcript (whisper transcription only, not for YT captions or "
+            "diarized output)."
+        ),
+    )
+    parser.add_argument(
+        "--transcript-only",
+        dest="transcript_only",
+        action="store_true",
+        default=False,
+        help=(
+            "Stop after writing the transcript (and subtitles, if --subtitles); "
+            "skip summarization. Implies --summarize is ignored."
+        ),
+    )
+    parser.add_argument(
         "--summary-mode",
         dest="summary_mode",
         choices={"meeting", "source", "auto"},

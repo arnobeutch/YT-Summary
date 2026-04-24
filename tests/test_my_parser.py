@@ -159,6 +159,30 @@ class TestParseArgs:
         with pytest.raises(SystemExit):
             _run_parser(["https://y.com/watch?v=x", "--summary-mode", "novel"], monkeypatch)
 
+    def test_force_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.force is False
+
+    def test_force_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--force"], monkeypatch)
+        assert ns.force is True
+
+    def test_subtitles_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.subtitles is False
+
+    def test_subtitles_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--subtitles"], monkeypatch)
+        assert ns.subtitles is True
+
+    def test_transcript_only_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.transcript_only is False
+
+    def test_transcript_only_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--transcript-only"], monkeypatch)
+        assert ns.transcript_only is True
+
     def test_model_size_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(
             ["https://y.com/watch?v=x", "--model-size", "medium"],

@@ -37,6 +37,8 @@ def _make_args(**overrides: object) -> MagicMock:
         "downloads_dir": None,
         "summary_mode": None,
         "force": False,
+        "subtitles": False,
+        "transcript_only": False,
     }
     defaults.update(overrides)
     return MagicMock(**defaults)
@@ -150,3 +152,28 @@ class TestDispatcher:
             )
             main()
         summ.assert_called_once()
+
+    def test_transcript_only_skips_summary(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("main.my_parser.parse_args") as parse,
+            patch("main.initialize_logger"),
+            patch("main.make_summarizer") as preflight,
+            patch("main.handlers.handle_url", return_value=_make_transcript()),
+            patch("main.handlers.write_transcript_file"),
+            patch("main.handlers.summarize") as summ,
+        ):
+            parse.return_value = _make_args(
+                input_path="https://y.com/watch?v=x",
+                is_url=True,
+                summarize=True,
+                transcript_only=True,
+            )
+            main()
+        # Both preflight and summarize must be skipped when --transcript-only.
+        preflight.assert_not_called()
+        summ.assert_not_called()

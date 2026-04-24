@@ -6,8 +6,8 @@ summarizers package.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 TranscriptSource = Literal["yt_manual", "yt_auto", "whisper", "file"]
 
@@ -21,3 +21,5 @@ class Transcript:
     title: str
     source: TranscriptSource
     diarized: bool
+    segments: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
+    """Whisper-style per-cue segments for SRT/VTT export. Empty when N/A."""

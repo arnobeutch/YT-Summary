@@ -102,7 +102,7 @@ class TestHandleUrlCachedTranscript:
                 "handlers.pya.download_youtube_audio",
                 return_value=(s.downloads_dir / "abc.wav", "Vid"),
             ),
-            patch("handlers.plt.transcribe_audio") as transcribe,
+            patch("handlers.plt.transcribe_audio_full") as transcribe,
         ):
             t = handle_url(_args(), s)
         transcribe.assert_not_called()
@@ -123,8 +123,8 @@ class TestHandleUrlCachedTranscript:
                 return_value=(s.downloads_dir / "abc.wav", "Vid"),
             ),
             patch(
-                "handlers.plt.transcribe_audio",
-                return_value=("fresh body", "en"),
+                "handlers.plt.transcribe_audio_full",
+                return_value=("fresh body", "en", []),
             ) as transcribe,
         ):
             t = handle_url(_args(force=True), s)

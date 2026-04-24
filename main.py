@@ -44,9 +44,11 @@ def main() -> None:
     my_logger.info(f"Script called with the following arguments: {vars(args)}")
     my_logger.debug(f"Loaded settings: {settings}")
 
+    will_summarize = args.summarize and not args.transcript_only
+
     # Preflight the LLM backend BEFORE the slow transcription pipeline so a
     # missing API key fails in seconds, not after a 10-minute whisper run.
-    if args.summarize:
+    if will_summarize:
         try:
             make_summarizer(settings)
         except MissingAPIKeyError as exc:
@@ -63,12 +65,14 @@ def main() -> None:
         my_logger.error("No handler for the given input type")
         return
 
-    handlers.write_transcript_file(transcript, settings)
+    handlers.write_transcript_file(transcript, settings, subtitles=args.subtitles)
     my_logger.info(f"Video title: {transcript.title}")
 
-    if args.summarize:
+    if will_summarize:
         my_logger.info("Generating summary...")
         handlers.summarize(transcript, args, settings)
+    elif args.transcript_only and args.summarize:
+        my_logger.info("--transcript-only set; skipping summary generation.")
 
 
 if __name__ == "__main__":

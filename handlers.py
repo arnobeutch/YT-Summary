@@ -27,6 +27,7 @@ from model import Transcript
 from my_logger import my_logger
 from my_settings import Settings
 from prepare_yt_transcript import TranscriptUnavailableError
+from subtitles import write_srt, write_vtt
 from summarizers import make_summarizer
 
 
@@ -64,6 +65,7 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
                 diarized=args.diarize,
             )
 
+        segments: list[dict[str, object]] = []
         if args.diarize:
             transcribed_text, used_lang = plt.transcribe_audio_with_diarization(
                 str(audio_path),
@@ -71,7 +73,7 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
                 language=requested_lang,
             )
         else:
-            transcribed_text, used_lang = plt.transcribe_audio(
+            transcribed_text, used_lang, segments = plt.transcribe_audio_full(
                 str(audio_path),
                 model_size=settings.whisper_model_size,
                 language=requested_lang,
@@ -83,6 +85,7 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
             title=title,
             source="whisper",
             diarized=args.diarize,
+            segments=segments,
         )
 
     summary_lang = derive_summary_language(track.lang, requested_lang)
@@ -125,6 +128,7 @@ def handle_media(args: argparse.Namespace, settings: Settings) -> Transcript:
     """
     title = sanitize_filename(Path(args.input_path).stem)
     requested_lang: str | None = args.language
+    segments: list[dict[str, object]] = []
     if args.diarize:
         text, used_lang = plt.transcribe_video_file_with_diarization(
             args.input_path,
@@ -132,11 +136,18 @@ def handle_media(args: argparse.Namespace, settings: Settings) -> Transcript:
             language=requested_lang,
         )
     else:
-        text, used_lang = plt.transcribe_video_file(
-            args.input_path,
-            model_size=settings.whisper_model_size,
-            language=requested_lang,
-        )
+        # transcribe_video_file is a thin wrapper around transcribe_audio_full
+        # via tempfile-based ffmpeg extraction; we duplicate the unwrap here
+        # so segments are exposed to handle_media too.
+        audio_tmp = plt.extract_audio(args.input_path)
+        try:
+            text, used_lang, segments = plt.transcribe_audio_full(
+                audio_tmp,
+                model_size=settings.whisper_model_size,
+                language=requested_lang,
+            )
+        finally:
+            Path(audio_tmp).unlink()
     summary_lang = derive_whisper_summary_language(used_lang, requested_lang)
     my_logger.info(f"Transcribed in '{used_lang}'; summary language: {summary_lang}")
     return Transcript(
@@ -145,6 +156,7 @@ def handle_media(args: argparse.Namespace, settings: Settings) -> Transcript:
         title=title,
         source="whisper",
         diarized=args.diarize,
+        segments=segments,
     )
 
 
@@ -175,8 +187,17 @@ def handle_text(args: argparse.Namespace, settings: Settings) -> Transcript:
     )
 
 
-def write_transcript_file(transcript: Transcript, settings: Settings) -> Path:
-    """Write the transcript text to ``<output_dir>/<title> [diarized] transcript.txt``."""
+def write_transcript_file(
+    transcript: Transcript,
+    settings: Settings,
+    *,
+    subtitles: bool = False,
+) -> Path:
+    """Write the transcript text to ``<output_dir>/<title> [diarized] transcript.txt``.
+
+    When ``subtitles`` is True and the transcript carries whisper segments,
+    also writes ``.srt`` and ``.vtt`` files alongside.
+    """
     suffix = " diarized transcript" if transcript.diarized else " transcript"
     p = settings.output_dir / f"{transcript.title}{suffix}.txt"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -185,6 +206,20 @@ def write_transcript_file(transcript: Transcript, settings: Settings) -> Path:
         encoding="utf8",
     )
     my_logger.info(f"Transcript written to {p}")
+
+    if subtitles:
+        if not transcript.segments:
+            my_logger.warning(
+                "--subtitles requested but no segments available "
+                "(YT captions or diarized output) — skipping .srt/.vtt.",
+            )
+        else:
+            srt_path = settings.output_dir / f"{transcript.title}.srt"
+            vtt_path = settings.output_dir / f"{transcript.title}.vtt"
+            write_srt(transcript.segments, srt_path)
+            write_vtt(transcript.segments, vtt_path)
+            my_logger.info(f"Subtitles written to {srt_path} and {vtt_path}")
+
     return p
 
 

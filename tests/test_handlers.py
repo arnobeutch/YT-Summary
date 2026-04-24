@@ -123,8 +123,8 @@ class TestHandleUrl:
                 return_value=(tmp_path / "audio.wav", "Remote Video"),
             ),
             patch(
-                "handlers.plt.transcribe_audio",
-                return_value=("transcribed body", "fr"),
+                "handlers.plt.transcribe_audio_full",
+                return_value=("transcribed body", "fr", []),
             ) as transcribe,
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
@@ -187,8 +187,8 @@ class TestHandleUrl:
                 return_value=(tmp_path / "audio.wav", "X"),
             ),
             patch(
-                "handlers.plt.transcribe_audio",
-                return_value=("body", "en"),
+                "handlers.plt.transcribe_audio_full",
+                return_value=("body", "en", []),
             ) as transcribe,
         ):
             handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
@@ -214,8 +214,8 @@ class TestHandleUrl:
                 return_value=(tmp_path / "audio.wav", "V"),
             ),
             patch(
-                "handlers.plt.transcribe_audio",
-                return_value=("corps", "fr"),
+                "handlers.plt.transcribe_audio_full",
+                return_value=("corps", "fr", []),
             ) as transcribe,
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid", language="fr"), s)
@@ -243,36 +243,48 @@ class TestHandleMedia:
         s = _settings(output_dir=tmp_path / "out")
         media = tmp_path / "video.mp4"
         media.write_text("")
-        with patch(
-            "handlers.plt.transcribe_video_file",
-            return_value=("Hello world", "en"),
-        ) as transcribe:
+        audio_tmp = str(tmp_path / "audio.wav")
+        with (
+            patch("handlers.plt.extract_audio", return_value=audio_tmp),
+            patch(
+                "handlers.plt.transcribe_audio_full",
+                return_value=("Hello world", "en", []),
+            ) as transcribe,
+            patch("handlers.Path.unlink"),
+        ):
             t = handle_media(_args(input_path=str(media), language=None), s)
         assert t.text == "Hello world"
         assert t.language == "en"  # detected en → summary en
         assert t.title == "video"
         assert t.source == "whisper"
-        transcribe.assert_called_once_with(str(media), model_size="small", language=None)
+        transcribe.assert_called_once_with(audio_tmp, model_size="small", language=None)
 
     def test_explicit_language_forces_whisper(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         media = tmp_path / "video.mp4"
         media.write_text("")
-        with patch(
-            "handlers.plt.transcribe_video_file",
-            return_value=("bonjour", "fr"),
-        ) as transcribe:
+        audio_tmp = str(tmp_path / "audio.wav")
+        with (
+            patch("handlers.plt.extract_audio", return_value=audio_tmp),
+            patch(
+                "handlers.plt.transcribe_audio_full",
+                return_value=("bonjour", "fr", []),
+            ) as transcribe,
+            patch("handlers.Path.unlink"),
+        ):
             t = handle_media(_args(input_path=str(media), language="fr"), s)
-        transcribe.assert_called_once_with(str(media), model_size="small", language="fr")
+        transcribe.assert_called_once_with(audio_tmp, model_size="small", language="fr")
         assert t.language == "fr"
 
     def test_detected_other_language_summary_in_english(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         media = tmp_path / "video.mp4"
         media.write_text("")
-        with patch(
-            "handlers.plt.transcribe_video_file",
-            return_value=("hallo", "de"),
+        audio_tmp = str(tmp_path / "audio.wav")
+        with (
+            patch("handlers.plt.extract_audio", return_value=audio_tmp),
+            patch("handlers.plt.transcribe_audio_full", return_value=("hallo", "de", [])),
+            patch("handlers.Path.unlink"),
         ):
             t = handle_media(_args(input_path=str(media), language=None), s)
         assert t.language == "en"
@@ -344,6 +356,32 @@ class TestWriteTranscriptFile:
         t = Transcript(text="x", language="en", title="t", source="file", diarized=False)
         write_transcript_file(t, s)
         assert (tmp_path / "deep" / "nested").is_dir()
+
+    def test_subtitles_written_when_segments_present(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        t = Transcript(
+            text="hello",
+            language="en",
+            title="vid",
+            source="whisper",
+            diarized=False,
+            segments=[{"start": 0.0, "end": 1.0, "text": "hello"}],
+        )
+        write_transcript_file(t, s, subtitles=True)
+        assert (tmp_path / "out" / "vid.srt").exists()
+        assert (tmp_path / "out" / "vid.vtt").exists()
+
+    def test_subtitles_skipped_when_no_segments(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        t = Transcript(
+            text="hello",
+            language="en",
+            title="vid",
+            source="yt_manual",  # no segments for caption tracks
+            diarized=False,
+        )
+        write_transcript_file(t, s, subtitles=True)
+        assert not (tmp_path / "out" / "vid.srt").exists()
 
 
 class TestSummarize:

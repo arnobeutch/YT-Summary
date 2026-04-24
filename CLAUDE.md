@@ -21,6 +21,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 | `model.py` | Shared dataclasses (currently just `Transcript`) — kept import-cycle-free. |
 | `formatting.py` | `sanitize_filename`, `wrap_transcript` — text helpers shared by handlers. |
 | `language.py` | `derive_summary_language` + `derive_whisper_summary_language`. Pure functions implementing the language-selection ladder (see README). |
+| `subtitles.py` | `write_srt` / `write_vtt` from whisper-style segment dicts. Used by `--subtitles`. |
 | `summarizers/` | Pluggable summarization backends: `OpenAISummarizer`, `OpenRouterSummarizer`, `RagSummarizer` behind a shared `Summarizer` Protocol; `make_summarizer(settings)` factory; `MissingAPIKeyError` for preflight; `analyze_sentiment`. `modes.py` carries the `meeting`/`source`/`auto` prompts + autodetect heuristic. |
 | `my_parser.py` | argparse: `input_path` + `--language`, `--diarize`, `--summarize`, `--with_openai`, `-d/--debug`. Detects URL vs. media vs. text file. |
 | `my_logger.py` | Custom logging: `ColorFormatter`, `MyJSONFormatter`, `NonErrorFilter`, `install_excepthook`. |

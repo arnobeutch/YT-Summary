@@ -94,6 +94,20 @@ def transcribe_audio(
         language when ``language`` was set, else the detected one.
 
     """
+    text, lang, _ = transcribe_audio_full(audio_file, model_size=model_size, language=language)
+    return text, lang
+
+
+def transcribe_audio_full(
+    audio_file: str,
+    model_size: str = "base",
+    language: str | None = None,
+) -> tuple[str, str, list[dict[str, Any]]]:
+    """Transcribe + return ``(text, language, segments)``.
+
+    ``segments`` is whisper's per-cue list with ``start`` / ``end`` /
+    ``text`` keys, suitable for SRT / VTT export.
+    """
     my_logger.info(f"Transcribing audio file: {audio_file}")
 
     device = get_device()
@@ -113,7 +127,8 @@ def transcribe_audio(
         fp16=(device == "cuda"),
         language=used_lang,
     )
-    return cast(str, result["text"]), used_lang
+    segments = cast(list[dict[str, Any]], result.get("segments", []))
+    return cast(str, result["text"]), used_lang, segments
 
 
 def transcribe_video_file(
