@@ -11,6 +11,7 @@ import pytest
 from yt_dlp.utils import DownloadError
 
 from prepare_yt_transcript import (
+    CaptionTrack,
     TranscriptUnavailableError,
     _extract_text_from_subtitle_file,
     _pick_caption,
@@ -65,45 +66,62 @@ def _ydl_returning(
 
 
 class TestPickCaption:
-    def test_prefers_manual_fr_over_auto_fr(self) -> None:
+    """Caption-track ladder: manual > auto across languages, requested > en > other."""
+
+    def test_rung_1_manual_at_requested(self) -> None:
         info: dict[str, Any] = {
             "subtitles": {"fr": [{}], "en": [{}]},
-            "automatic_captions": {"fr": [{}]},
+            "automatic_captions": {"fr": [{}], "en": [{}]},
         }
-        assert _pick_caption(info) == ("fr", "manual")
+        assert _pick_caption(info, requested_lang="fr") == ("fr", "manual")
 
-    def test_prefers_manual_en_when_fr_absent(self) -> None:
-        info: dict[str, Any] = {
-            "subtitles": {"en": [{}]},
-            "automatic_captions": {"fr": [{}]},
-        }
-        # Manual beats auto across languages — manual en wins over auto fr.
-        assert _pick_caption(info) == ("en", "manual")
-
-    def test_falls_back_to_auto_fr_when_no_manual(self) -> None:
+    def test_rung_2_auto_at_requested(self) -> None:
         info: dict[str, Any] = {
             "subtitles": {},
             "automatic_captions": {"fr": [{}], "en": [{}]},
         }
-        assert _pick_caption(info) == ("fr", "auto")
+        assert _pick_caption(info, requested_lang="fr") == ("fr", "auto")
 
-    def test_falls_back_to_auto_en_when_only_en_auto_present(self) -> None:
+    def test_rung_3_manual_at_en_when_requested_absent(self) -> None:
+        info: dict[str, Any] = {
+            "subtitles": {"en": [{}]},
+            "automatic_captions": {"fr": [{}]},
+        }
+        # Manual EN beats auto FR even when FR was requested.
+        assert _pick_caption(info, requested_lang="fr") == ("en", "manual")
+
+    def test_rung_4_auto_at_en_when_no_manual(self) -> None:
         info: dict[str, Any] = {
             "subtitles": {},
             "automatic_captions": {"en": [{}]},
         }
-        assert _pick_caption(info) == ("en", "auto")
+        assert _pick_caption(info, requested_lang="fr") == ("en", "auto")
 
-    def test_falls_back_to_other_language_manual(self) -> None:
+    def test_rung_5_manual_other_language(self) -> None:
         info: dict[str, Any] = {
             "subtitles": {"de": [{}]},
             "automatic_captions": {},
         }
-        assert _pick_caption(info) == ("de", "manual")
+        assert _pick_caption(info, requested_lang="fr") == ("de", "manual")
 
-    def test_returns_none_when_no_captions(self) -> None:
+    def test_rung_6_auto_other_language(self) -> None:
+        info: dict[str, Any] = {
+            "subtitles": {},
+            "automatic_captions": {"de": [{}]},
+        }
+        assert _pick_caption(info, requested_lang="fr") == ("de", "auto")
+
+    def test_no_captions_returns_none(self) -> None:
         empty: dict[str, Any] = {"subtitles": {}, "automatic_captions": {}}
         assert _pick_caption(empty) is None
+
+    def test_no_request_defaults_to_en(self) -> None:
+        info: dict[str, Any] = {
+            "subtitles": {"en": [{}], "fr": [{}]},
+            "automatic_captions": {},
+        }
+        # Without requested_lang, en is the implicit preference.
+        assert _pick_caption(info) == ("en", "manual")
 
 
 class TestExtractTextFromSubtitleFile:
@@ -148,9 +166,12 @@ class TestGetYoutubeTranscript:
         }
         ydl = _ydl_returning(info, write_files={"abc.fr.srt": _SAMPLE_SRT})
         with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
-            result = get_youtube_transcript("abc")
-        assert "Hello world" in result
-        for line in result.splitlines():
+            track = get_youtube_transcript("abc", requested_lang="fr")
+        assert isinstance(track, CaptionTrack)
+        assert track.lang == "fr"
+        assert track.kind == "manual"
+        assert "Hello world" in track.text
+        for line in track.text.splitlines():
             assert len(line) <= 80
 
     def test_happy_path_auto_en_when_no_manual(self) -> None:
@@ -161,8 +182,23 @@ class TestGetYoutubeTranscript:
         }
         ydl = _ydl_returning(info, write_files={"abc.en.srt": _SAMPLE_SRT})
         with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
-            result = get_youtube_transcript("abc")
-        assert "Hello world" in result
+            track = get_youtube_transcript("abc")
+        assert track.lang == "en"
+        assert track.kind == "auto"
+        assert "Hello world" in track.text
+
+    def test_requested_lang_propagates_to_picker(self) -> None:
+        # Both manual fr and auto fr present + manual en present.
+        # Requested fr should pick manual fr (rung 1), not manual en (rung 3).
+        info: dict[str, Any] = {
+            "id": "abc",
+            "subtitles": {"fr": [{}], "en": [{}]},
+            "automatic_captions": {},
+        }
+        ydl = _ydl_returning(info, write_files={"abc.fr.srt": _SAMPLE_SRT})
+        with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
+            track = get_youtube_transcript("abc", requested_lang="fr")
+        assert track.lang == "fr"
 
     def test_no_captions_raises_lang_not_found(self) -> None:
         info: dict[str, Any] = {

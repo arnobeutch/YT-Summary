@@ -76,8 +76,24 @@ def detect_language(audio_file: str, model: whisper.Whisper, device: str) -> str
     return max(probs_dict, key=lambda k: probs_dict[k])
 
 
-def transcribe_audio(audio_file: str, model_size: str = "base") -> tuple[str, str]:
-    """Transcribe audio using Whisper and returns the transcribed text and the detected language."""
+def transcribe_audio(
+    audio_file: str,
+    model_size: str = "base",
+    language: str | None = None,
+) -> tuple[str, str]:
+    """Transcribe audio using Whisper.
+
+    Args:
+        audio_file: Path to a 16kHz mono wav (or anything whisper accepts).
+        model_size: ``tiny`` / ``base`` / ``small`` / ``medium`` / ``large``.
+        language: Force whisper to this language (e.g. ``"fr"``). When
+            ``None``, whisper auto-detects.
+
+    Returns:
+        ``(text, language_used)`` where ``language_used`` is the forced
+        language when ``language`` was set, else the detected one.
+
+    """
     my_logger.info(f"Transcribing audio file: {audio_file}")
 
     device = get_device()
@@ -85,27 +101,38 @@ def transcribe_audio(audio_file: str, model_size: str = "base") -> tuple[str, st
     patch_whisper_progress_bar()
     model = whisper.load_model(model_size, device=device)
 
-    # Detect language
-    detected_lang = detect_language(audio_file, model, device)
-    my_logger.info(f"\tDetected language: {detected_lang}")
+    if language is None:
+        used_lang = detect_language(audio_file, model, device)
+        my_logger.info(f"\tDetected language: {used_lang}")
+    else:
+        used_lang = language
+        my_logger.info(f"\tForced language: {used_lang}")
 
     result = model.transcribe(
         audio_file,
         fp16=(device == "cuda"),
-        language=detected_lang,
+        language=used_lang,
     )
-    return cast(str, result["text"]), detected_lang
+    return cast(str, result["text"]), used_lang
 
 
-def transcribe_video_file(video_file: str, model_size: str = "base") -> tuple[str, str]:
+def transcribe_video_file(
+    video_file: str,
+    model_size: str = "base",
+    language: str | None = None,
+) -> tuple[str, str]:
     """Full pipeline: Extract audio from video, transcribe it, return text."""
     my_logger.info(f"Processing: {video_file}")
     audio_path = extract_audio(video_file)
     try:
-        transcription, language = transcribe_audio(audio_path, model_size=model_size)
+        transcription, used_lang = transcribe_audio(
+            audio_path,
+            model_size=model_size,
+            language=language,
+        )
     finally:
         Path(audio_path).unlink()  # Cleanup temp audio file
-    return transcription, language
+    return transcription, used_lang
 
 
 def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
@@ -208,15 +235,24 @@ def detect_speech_segments(audio_file: str) -> Timeline:
 def transcribe_audio_with_diarization(
     audio_file: str,
     model_size: str = "base",
+    language: str | None = None,
 ) -> tuple[str, str]:
-    """Transcribe audio with speaker diarization."""
+    """Transcribe audio with speaker diarization.
+
+    ``language=None`` autodetects (default behavior); pass a code (e.g.
+    ``"fr"``) to force whisper to that language.
+    """
     device = get_device()
     my_logger.info(f"\tUsing device: {device}")
     patch_whisper_progress_bar()
     model = whisper.load_model(model_size, device=device)
 
-    language = detect_language(audio_file, model, device)
-    my_logger.info(f"Detected language: {language}")
+    if language is None:
+        used_lang = detect_language(audio_file, model, device)
+        my_logger.info(f"Detected language: {used_lang}")
+    else:
+        used_lang = language
+        my_logger.info(f"Forced language: {used_lang}")
 
     # Diarize speakers
     diarized_segments = diarize_speakers(audio_file)
@@ -241,28 +277,30 @@ def transcribe_audio_with_diarization(
         segment_result = model.transcribe(
             sliced_audio,
             fp16=(device == "cuda"),
-            language=language,
+            language=used_lang,
         )
         text = cast(str, segment_result["text"]).strip()
         if not text:  # Skip empty transcriptions
             continue
         full_text.append(f"{speaker}: {text}")
 
-    return "\n".join(full_text), language
+    return "\n".join(full_text), used_lang
 
 
 def transcribe_video_file_with_diarization(
     video_file: str,
     model_size: str = "base",
+    language: str | None = None,
 ) -> tuple[str, str]:
     """Full pipeline: Extract audio from video, transcribe it with diarization."""
     my_logger.info(f"Processing with diarization: {video_file}")
     audio_path = extract_audio(video_file)
     try:
-        transcription, language = transcribe_audio_with_diarization(
+        transcription, used_lang = transcribe_audio_with_diarization(
             audio_path,
             model_size=model_size,
+            language=language,
         )
     finally:
         Path(audio_path).unlink()
-    return transcription, language
+    return transcription, used_lang

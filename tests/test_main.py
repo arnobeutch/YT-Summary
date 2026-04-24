@@ -45,7 +45,7 @@ def _make_transcript(**overrides: object) -> MagicMock:
         "text": "body",
         "language": "en",
         "title": "T",
-        "source": "yt_caption",
+        "source": "yt_manual",
         "diarized": False,
     }
     defaults.update(overrides)

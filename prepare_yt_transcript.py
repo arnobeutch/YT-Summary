@@ -7,9 +7,10 @@ We use yt-dlp's caption-download path (rather than a separate API) so we can:
   * handle the same edge cases yt-dlp handles (member-only videos, region
     blocks, subtitle-disabled videos, etc.).
 
-The current `get_youtube_transcript` keeps its previous API: given a video id,
-return a single text string in the first available of (manual fr, auto fr,
-manual en, auto en). The full language-selection ladder lands in Step 8.
+``get_youtube_transcript`` returns a :class:`CaptionTrack` carrying the
+caption text, its actual language code, and whether it came from a manual or
+auto-generated track. The pick follows the ladder spelled out in the README's
+"Language selection" section (manual beats auto across languages).
 """
 
 from __future__ import annotations
@@ -17,13 +18,25 @@ from __future__ import annotations
 import re
 import tempfile
 import textwrap
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
 from my_logger import my_logger
+
+CaptionKind = Literal["manual", "auto"]
+
+
+@dataclass(frozen=True)
+class CaptionTrack:
+    """A retrieved caption track ready for downstream use."""
+
+    text: str
+    lang: str
+    kind: CaptionKind
 
 
 class TranscriptUnavailableError(Exception):
@@ -46,23 +59,34 @@ def _build_url(video_id: str) -> str:
 
 def _pick_caption(
     info: dict[str, Any],
-    preferred_langs: tuple[str, ...] = ("fr", "en"),
-) -> tuple[str, str] | None:
+    requested_lang: str | None = None,
+) -> tuple[str, CaptionKind] | None:
     """Return ``(lang, kind)`` for the best available caption track.
 
-    ``kind`` is ``"manual"`` or ``"auto"``. Manual beats auto across languages
-    (decided behavior; see plan §C "Language-selection decision tree").
+    Priority, top-down (manual beats auto across languages):
+      1. Manual @ ``requested_lang`` (if set).
+      2. Auto @ ``requested_lang`` (if set).
+      3. Manual @ ``"en"``.
+      4. Auto @ ``"en"``.
+      5. Manual @ any other language (first encountered).
+      6. Auto @ any other language (first encountered).
+
     """
     subtitles = cast(dict[str, Any], info.get("subtitles") or {})
     auto = cast(dict[str, Any], info.get("automatic_captions") or {})
 
-    for lang in preferred_langs:
+    preferred: list[str] = []
+    if requested_lang:
+        preferred.append(requested_lang)
+    if "en" not in preferred:
+        preferred.append("en")
+
+    for lang in preferred:
         if lang in subtitles:
             return (lang, "manual")
-    for lang in preferred_langs:
+    for lang in preferred:
         if lang in auto:
             return (lang, "auto")
-    # Last resort: any other language (manual first, then auto).
     if subtitles:
         return (next(iter(subtitles)), "manual")
     if auto:
@@ -100,8 +124,15 @@ def _extract_text_from_subtitle_file(path: Path) -> str:
     return " ".join(lines)
 
 
-def get_youtube_transcript(video_id: str) -> str:
-    """Fetch a YouTube transcript in French or English (manual preferred).
+def get_youtube_transcript(video_id: str, requested_lang: str | None = None) -> CaptionTrack:
+    """Fetch a YouTube transcript honoring the language-selection ladder.
+
+    Args:
+        video_id: YouTube video ID (the part after ``v=`` or after
+            ``youtu.be/``).
+        requested_lang: Optional preferred language code (typically
+            ``"fr"`` or ``"en"``). When set, manual @ this lang outranks
+            manual @ English.
 
     Raises:
         TranscriptUnavailableError: No usable caption track is retrievable.
@@ -110,13 +141,24 @@ def get_youtube_transcript(video_id: str) -> str:
     """
     url = _build_url(video_id)
 
+    # Ask yt-dlp for both the requested language (if any) and English so we
+    # always have a sensible fallback. Other languages get downloaded only
+    # when the picker selects them — but we hint at them up-front so yt-dlp
+    # actually fetches the file.
+    sub_langs: list[str] = []
+    if requested_lang:
+        sub_langs.append(requested_lang)
+    if "en" not in sub_langs:
+        sub_langs.append("en")
+    sub_langs.append("all")  # fallback so yt-dlp doesn't refuse other langs
+
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
         opts: Any = {
             "skip_download": True,
             "writesubtitles": True,
             "writeautomaticsub": True,
-            "subtitleslangs": ["fr", "en"],
+            "subtitleslangs": sub_langs,
             "subtitlesformat": "srt",
             "outtmpl": str(tmpdir / "%(id)s.%(ext)s"),
             "quiet": True,
@@ -133,20 +175,18 @@ def get_youtube_transcript(video_id: str) -> str:
                 "yt-dlp could not retrieve caption metadata.",
             ) from exc
 
-        pick = _pick_caption(info)
+        pick = _pick_caption(info, requested_lang=requested_lang)
         if pick is None:
             raise TranscriptUnavailableError(
                 "lang_not_found",
-                "No French or English caption track listed for this video.",
+                "No caption track found in any language.",
             )
 
         lang, kind = pick
-        my_logger.info(f"Using {kind} captions in '{lang}'")
+        my_logger.info(f"Using {kind} captions in '{lang}' (requested: {requested_lang or 'auto'})")
 
-        # yt-dlp writes <id>.<lang>.srt to the outtmpl directory.
         srt_path = tmpdir / f"{info['id']}.{lang}.srt"
         if not srt_path.exists():
-            # Some tracks are listed but yt-dlp fails to write them (rare).
             raise TranscriptUnavailableError(
                 "empty_payload",
                 f"yt-dlp listed {kind} captions in '{lang}' but produced no file.",
@@ -160,4 +200,5 @@ def get_youtube_transcript(video_id: str) -> str:
             "Caption file existed but contained no usable text.",
         )
 
-    return textwrap.fill(text, width=80, break_long_words=False, break_on_hyphens=False)
+    wrapped = textwrap.fill(text, width=80, break_long_words=False, break_on_hyphens=False)
+    return CaptionTrack(text=wrapped, lang=lang, kind=kind)

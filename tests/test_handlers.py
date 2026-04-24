@@ -14,7 +14,12 @@ from handlers import (
     write_transcript_file,
 )
 from my_settings import Settings
-from prepare_yt_transcript import TranscriptUnavailableError
+from prepare_yt_transcript import CaptionTrack, TranscriptUnavailableError
+
+
+def _track(text: str = "caption text", lang: str = "en", kind: str = "manual") -> CaptionTrack:
+    return CaptionTrack(text=text, lang=lang, kind=kind)  # type: ignore[arg-type]  # kind is Literal
+
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -23,7 +28,7 @@ if TYPE_CHECKING:
 def _args(**overrides: object) -> MagicMock:
     defaults: dict[str, object] = {
         "input_path": "",
-        "language": "en",
+        "language": None,  # parser default — autodetect
         "diarize": False,
         "summarize": False,
         "with_openai": False,
@@ -53,7 +58,7 @@ def _settings(**overrides: object) -> Settings:
 
 
 class TestHandleUrl:
-    def test_caption_happy_path(
+    def test_caption_happy_path_manual_fr(
         self,
         tmp_path: Path,
     ) -> None:
@@ -61,13 +66,44 @@ class TestHandleUrl:
         with (
             patch("handlers.pya.extract_video_id", return_value="vid"),
             patch("handlers.pya.fetch_video_title", return_value="My Video"),
-            patch("handlers.pytt.get_youtube_transcript", return_value="caption text"),
+            patch(
+                "handlers.pytt.get_youtube_transcript",
+                return_value=_track(text="bonjour", lang="fr", kind="manual"),
+            ),
+        ):
+            t = handle_url(_args(input_path="https://y.com/watch?v=vid", language="fr"), s)
+        assert t.text == "bonjour"
+        assert t.title == "My Video"
+        assert t.source == "yt_manual"
+        assert t.language == "fr"
+        assert t.diarized is False
+
+    def test_caption_other_lang_forces_summary_in_english(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
+        with (
+            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("handlers.pya.fetch_video_title", return_value="V"),
+            patch(
+                "handlers.pytt.get_youtube_transcript",
+                return_value=_track(text="hallo", lang="de", kind="manual"),
+            ),
+        ):
+            t = handle_url(_args(input_path="https://y.com/watch?v=vid", language="fr"), s)
+        # Caption is German → summary forced to English.
+        assert t.language == "en"
+
+    def test_caption_auto_marked_as_yt_auto(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
+        with (
+            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("handlers.pya.fetch_video_title", return_value="V"),
+            patch(
+                "handlers.pytt.get_youtube_transcript",
+                return_value=_track(text="x", lang="en", kind="auto"),
+            ),
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
-        assert t.text == "caption text"
-        assert t.title == "My Video"
-        assert t.source == "yt_caption"
-        assert t.diarized is False
+        assert t.source == "yt_auto"
 
     def test_falls_back_to_whisper_when_unavailable(
         self,
@@ -91,11 +127,15 @@ class TestHandleUrl:
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
         assert t.text == "transcribed body"
-        assert t.language == "fr"
+        assert t.language == "fr"  # whisper detected fr; summary follows
         assert t.title == "Remote Video"
         assert t.source == "whisper"
-        # Default model size from Settings ("small").
-        transcribe.assert_called_once_with(str(tmp_path / "audio.wav"), model_size="small")
+        # Default model size from Settings ("small"); language=None means autodetect.
+        transcribe.assert_called_once_with(
+            str(tmp_path / "audio.wav"),
+            model_size="small",
+            language=None,
+        )
 
     def test_fallback_with_diarization(
         self,
@@ -150,21 +190,54 @@ class TestHandleUrl:
             ) as transcribe,
         ):
             handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
-        transcribe.assert_called_once_with(str(tmp_path / "audio.wav"), model_size="medium")
+        transcribe.assert_called_once_with(
+            str(tmp_path / "audio.wav"),
+            model_size="medium",
+            language=None,
+        )
+
+    def test_fallback_forces_requested_language_to_whisper(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
+        with (
+            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch(
+                "handlers.pytt.get_youtube_transcript",
+                side_effect=TranscriptUnavailableError("lang_not_found", "x"),
+            ),
+            patch(
+                "handlers.pya.download_youtube_audio",
+                return_value=(tmp_path / "audio.wav", "V"),
+            ),
+            patch(
+                "handlers.plt.transcribe_audio",
+                return_value=("corps", "fr"),
+            ) as transcribe,
+        ):
+            t = handle_url(_args(input_path="https://y.com/watch?v=vid", language="fr"), s)
+        # Whisper called with language=fr (forced), and summary lang follows.
+        transcribe.assert_called_once_with(
+            str(tmp_path / "audio.wav"),
+            model_size="small",
+            language="fr",
+        )
+        assert t.language == "fr"
 
     def test_title_sanitized(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
             patch("handlers.pya.extract_video_id", return_value="vid"),
             patch("handlers.pya.fetch_video_title", return_value="Bad/Name:Here"),
-            patch("handlers.pytt.get_youtube_transcript", return_value="t"),
+            patch("handlers.pytt.get_youtube_transcript", return_value=_track()),
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
         assert t.title == "Bad_Name_Here"
 
 
 class TestHandleMedia:
-    def test_non_diarize(self, tmp_path: Path) -> None:
+    def test_non_diarize_autodetect(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         media = tmp_path / "video.mp4"
         media.write_text("")
@@ -174,9 +247,33 @@ class TestHandleMedia:
         ) as transcribe:
             t = handle_media(_args(input_path=str(media), language=None), s)
         assert t.text == "Hello world"
+        assert t.language == "en"  # detected en → summary en
         assert t.title == "video"
         assert t.source == "whisper"
-        transcribe.assert_called_once_with(str(media), model_size="small")
+        transcribe.assert_called_once_with(str(media), model_size="small", language=None)
+
+    def test_explicit_language_forces_whisper(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        media = tmp_path / "video.mp4"
+        media.write_text("")
+        with patch(
+            "handlers.plt.transcribe_video_file",
+            return_value=("bonjour", "fr"),
+        ) as transcribe:
+            t = handle_media(_args(input_path=str(media), language="fr"), s)
+        transcribe.assert_called_once_with(str(media), model_size="small", language="fr")
+        assert t.language == "fr"
+
+    def test_detected_other_language_summary_in_english(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        media = tmp_path / "video.mp4"
+        media.write_text("")
+        with patch(
+            "handlers.plt.transcribe_video_file",
+            return_value=("hallo", "de"),
+        ):
+            t = handle_media(_args(input_path=str(media), language=None), s)
+        assert t.language == "en"
 
     def test_diarize(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
@@ -195,7 +292,7 @@ class TestHandleMedia:
 
 
 class TestHandleText:
-    def test_reads_file(self, tmp_path: Path) -> None:
+    def test_reads_file_with_explicit_language(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         txt = tmp_path / "t.txt"
         txt.write_text("Alice: hi", encoding="utf-8")
@@ -203,14 +300,32 @@ class TestHandleText:
         assert result.text == "Alice: hi"
         assert result.title == "t"
         assert result.source == "file"
+        assert result.language == "en"
+
+    def test_reads_file_autodetect_french(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        txt = tmp_path / "t.txt"
+        txt.write_text(
+            "Bonjour, comment allez-vous aujourd'hui ? J'espère que vous allez bien.",
+            encoding="utf-8",
+        )
+        result = handle_text(_args(input_path=str(txt), language=None), s)
+        # langdetect should pick fr; summary follows.
+        assert result.language == "fr"
+
+    def test_reads_file_autodetect_failure_defaults_to_en(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out")
+        txt = tmp_path / "t.txt"
+        # Empty / punctuation-only text trips langdetect.
+        txt.write_text("...", encoding="utf-8")
+        result = handle_text(_args(input_path=str(txt), language=None), s)
+        assert result.language == "en"
 
 
 class TestWriteTranscriptFile:
     def test_writes_non_diarized(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
-        t = Transcript(
-            text="hello", language="en", title="vid", source="yt_caption", diarized=False
-        )
+        t = Transcript(text="hello", language="en", title="vid", source="yt_manual", diarized=False)
         out = write_transcript_file(t, s)
         assert out == tmp_path / "out" / "vid transcript.txt"
         assert out.read_text() == "hello"
@@ -233,7 +348,7 @@ class TestSummarize:
     def test_openai_dispatch(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")
         t = Transcript(
-            text="body", language="en", title="title", source="yt_caption", diarized=False
+            text="body", language="en", title="title", source="yt_manual", diarized=False
         )
         with patch("handlers.st.summarize_transcript_with_openai") as openai_summ:
             summarize(t, _args(input_path="u", with_openai=True), s)
@@ -242,7 +357,7 @@ class TestSummarize:
     def test_rag_dispatch_uses_settings_default_model(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", ollama_model="mistral")
         t = Transcript(
-            text="body", language="en", title="title", source="yt_caption", diarized=False
+            text="body", language="en", title="title", source="yt_manual", diarized=False
         )
         with patch("handlers.st.summarize_transcript_with_rag") as rag:
             summarize(t, _args(input_path="u", with_openai=False), s)
@@ -255,7 +370,7 @@ class TestSummarize:
             llm_model="gemma4:e4b",
         )
         t = Transcript(
-            text="body", language="en", title="title", source="yt_caption", diarized=False
+            text="body", language="en", title="title", source="yt_manual", diarized=False
         )
         with patch("handlers.st.summarize_transcript_with_rag") as rag:
             summarize(t, _args(input_path="u", with_openai=False), s)

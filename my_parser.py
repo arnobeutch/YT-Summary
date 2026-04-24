@@ -50,10 +50,13 @@ def parse_args() -> argparse.Namespace:
         "-l",
         "--language",
         choices={"en", "fr"},
-        default="en",
+        default=None,
         help=(
-            "Use en or fr to specify the language of the summary (default: en). "
-            "Ignored for local media files — auto-detected."
+            "Preferred source language ('en' or 'fr'). Used as a hint when "
+            "picking a YouTube caption track, and to force whisper's "
+            "transcription language. If omitted: autodetect. The summary "
+            "always tracks the source language (English fallback for "
+            "anything other than en/fr)."
         ),
     )
     parser.add_argument(

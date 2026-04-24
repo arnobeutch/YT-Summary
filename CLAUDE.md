@@ -19,6 +19,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 | `main.py` | Entry point. Parses args, initializes logger, loads settings, dispatches to a handler. ~30 lines. |
 | `handlers.py` | `Transcript` dataclass + `handle_url` / `handle_media` / `handle_text` + `write_transcript_file` + `summarize`. The actual orchestration. |
 | `formatting.py` | `sanitize_filename`, `wrap_transcript` — text helpers shared by handlers. |
+| `language.py` | `derive_summary_language` + `derive_whisper_summary_language`. Pure functions implementing the language-selection ladder (see README). |
 | `my_parser.py` | argparse: `input_path` + `--language`, `--diarize`, `--summarize`, `--with_openai`, `-d/--debug`. Detects URL vs. media vs. text file. |
 | `my_logger.py` | Custom logging: `ColorFormatter`, `MyJSONFormatter`, `NonErrorFilter`, `install_excepthook`. |
 | `logger_config.yaml` | dictConfig YAML. Handlers: stdout (non-errors), stderr (WARNING+), rotating `logs/yt-summary.log`. |

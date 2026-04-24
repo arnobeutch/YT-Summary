@@ -99,7 +99,7 @@ class TestParseArgs:
 
     def test_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.language == "en"
+        assert ns.language is None  # autodetect
         assert ns.diarize is False
         assert ns.summarize is False
         assert ns.with_openai is False

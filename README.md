@@ -29,7 +29,7 @@ uv run main.py ./existing_transcript.txt --summarize
 
 | Flag | Description |
 | --- | --- |
-| `-l`, `--language` | `en` or `fr` (default: `en`). Ignored for local media (auto-detected). |
+| `-l`, `--language` | `en` or `fr`. Default: autodetect. Used as a *hint* for caption-track selection and to force whisper's transcription language. The summary always tracks the source's language (English fallback for anything other than en/fr). |
 | `--diarize` | Identify speakers when transcribing local media (default: False). |
 | `-s`, `--summarize` | Produce a summary (default: False). |
 | `--with-openai` | Shortcut for `--llm-provider openai` (default: False). `--with_openai` still works as a legacy alias. |
@@ -39,6 +39,35 @@ uv run main.py ./existing_transcript.txt --summarize
 | `--output-dir` | Where outputs land. Default from `OUTPUT_DIR` env or `./results`. |
 | `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
+
+### Language selection
+
+The summary follows the source's language; `--language` is a preference hint, not a hard override.
+
+For YouTube URLs the caption track is picked top-down (manual beats auto across languages):
+
+1. Manual captions in `--language` (if set)
+2. Auto captions in `--language` (if set)
+3. Manual captions in English
+4. Auto captions in English
+5. Manual captions in any other language
+6. Auto captions in any other language
+7. *No captions* → fall back to whisper
+
+Once a track is picked, the summary language is derived:
+
+- caption is in `--language` or English → summary in that language
+- caption is in some other language → summary in **English** (translated by the LLM)
+
+When whisper transcribes (no captions available, or local media):
+
+- `--language` set → whisper is forced to that language; summary in that language
+- otherwise → whisper auto-detects; if detected ∈ {en, fr} → summary in detected, else → summary in English
+
+For a pre-existing text file (`.txt`, `.srt`, `.vtt`):
+
+- `--language` set → respected
+- otherwise → `langdetect` → same en/fr/else rule as whisper
 
 ## Configuration
 

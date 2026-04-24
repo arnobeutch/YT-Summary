@@ -10,7 +10,8 @@
       "Bash(rtk ps *)",
       "Bash(uv run *)",
       "Bash(just all *)",
-      "Bash(rtk wc *)"
+      "Bash(rtk wc *)",
+      "Bash(uv lock *)"
     ]
   }
 }
