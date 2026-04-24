@@ -11,7 +11,8 @@
       "Bash(uv run *)",
       "Bash(just all *)",
       "Bash(rtk wc *)",
-      "Bash(uv lock *)"
+      "Bash(uv lock *)",
+      "Bash(rtk pytest *)"
     ]
   }
 }

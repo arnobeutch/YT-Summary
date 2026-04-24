@@ -25,7 +25,7 @@ from typing import Any, Literal, cast
 import yt_dlp
 from yt_dlp.utils import DownloadError
 
-from my_logger import my_logger
+from yt_summary.logger import my_logger
 
 CaptionKind = Literal["manual", "auto"]
 

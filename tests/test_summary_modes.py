@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from model import Transcript
-from summarizers.modes import (
+from yt_summary.model import Transcript
+from yt_summary.summarizers.modes import (
     MEETING_PROMPT_EN,
     MEETING_PROMPT_FR,
     SOURCE_PROMPT_EN,

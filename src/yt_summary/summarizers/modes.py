@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from model import Transcript
+    from yt_summary.model import Transcript
 
 SummaryMode = Literal["meeting", "source", "auto"]
 ResolvedMode = Literal["meeting", "source"]

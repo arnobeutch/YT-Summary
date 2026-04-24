@@ -14,16 +14,16 @@ Summarize YouTube videos, local audio/video files, or existing text transcripts.
 ## Usage
 
 ```bash
-uv run main.py <url | path> [url | path ...] [options]
+uv run yt-summary <url | path> [url | path ...] [options]
 ```
 
 Multiple inputs are processed sequentially in one invocation:
 
 ```bash
-uv run main.py https://www.youtube.com/watch?v=VIDEO_ID --summarize --with-openai
-uv run main.py ./my_meeting.mp4 --diarize --summarize
-uv run main.py ./existing_transcript.txt --summarize
-uv run main.py https://youtu.be/X https://youtu.be/Y ./local.mp4  # batch
+uv run yt-summary https://www.youtube.com/watch?v=VIDEO_ID --summarize --with-openai
+uv run yt-summary ./my_meeting.mp4 --diarize --summarize
+uv run yt-summary ./existing_transcript.txt --summarize
+uv run yt-summary https://youtu.be/X https://youtu.be/Y ./local.mp4  # batch
 ```
 
 ### Options

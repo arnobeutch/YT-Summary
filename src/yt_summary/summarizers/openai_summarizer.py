@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from .openai_compatible import OpenAICompatibleSummarizer
 
 if TYPE_CHECKING:
-    from my_settings import Settings
+    from yt_summary.settings import Settings
 
 
 class OpenAISummarizer(OpenAICompatibleSummarizer):

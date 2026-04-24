@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from textblob import TextBlob
 
-import my_constants
+from yt_summary import constants as my_constants
 
 if TYPE_CHECKING:
-    from model import Transcript
-    from my_settings import Settings
+    from yt_summary.model import Transcript
+    from yt_summary.settings import Settings
 
 
 class MissingAPIKeyError(Exception):

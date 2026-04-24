@@ -9,11 +9,10 @@ import sys
 
 import torch.cuda
 
-import handlers
-import my_parser
-from my_logger import initialize_logger, my_logger
-from my_settings import Settings
-from summarizers import MissingAPIKeyError, make_summarizer
+from yt_summary import handlers, parser
+from yt_summary.logger import initialize_logger, my_logger
+from yt_summary.settings import Settings
+from yt_summary.summarizers import MissingAPIKeyError, make_summarizer
 
 
 def _apply_cli_overrides(args: argparse.Namespace, base: Settings) -> Settings:
@@ -62,7 +61,7 @@ def _dry_run_report(path: str, classification: dict[str, bool], settings: Settin
 
 def main() -> None:
     """Parse args, build a Transcript for each input, write it, and optionally summarize."""
-    args = my_parser.parse_args()
+    args = parser.parse_args()
     initialize_logger(args)
     settings = _apply_cli_overrides(args, Settings.from_env())
 
@@ -83,7 +82,7 @@ def main() -> None:
             sys.exit(2)
 
     for path in args.input_path:
-        classification = my_parser.classify_input(path)
+        classification = parser.classify_input(path)
 
         if args.dry_run:
             _dry_run_report(path, classification, settings)

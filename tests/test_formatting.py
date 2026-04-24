@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from formatting import sanitize_filename, wrap_transcript
+from yt_summary.formatting import sanitize_filename, wrap_transcript
 
 
 class TestSanitizeFilename:

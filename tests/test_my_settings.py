@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import my_settings
-from my_settings import Settings
+import yt_summary.settings as my_settings
+from yt_summary.settings import Settings
 
 
 class TestLoadDotenv:

@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 from pyannote.core import Segment
 
-import prepare_local_transcript as plt
-from prepare_local_transcript import (
+import yt_summary.transcription.local as plt
+from yt_summary.transcription.local import (
     _MODEL_CACHE,
     extract_audio,
     get_device,
@@ -26,11 +26,11 @@ if TYPE_CHECKING:
 
 class TestGetDevice:
     def test_cuda_when_available(self) -> None:
-        with patch("prepare_local_transcript.torch.cuda.is_available", return_value=True):
+        with patch("yt_summary.transcription.local.torch.cuda.is_available", return_value=True):
             assert get_device() == "cuda"
 
     def test_cpu_fallback(self) -> None:
-        with patch("prepare_local_transcript.torch.cuda.is_available", return_value=False):
+        with patch("yt_summary.transcription.local.torch.cuda.is_available", return_value=False):
             assert get_device() == "cpu"
 
 
@@ -96,7 +96,9 @@ class TestModelCache:
     def test_model_loaded_once_on_repeated_calls(self) -> None:
         _MODEL_CACHE.clear()
         fake_model = object()
-        with patch("prepare_local_transcript.whisper.load_model", return_value=fake_model) as load:
+        with patch(
+            "yt_summary.transcription.local.whisper.load_model", return_value=fake_model
+        ) as load:
             m1 = plt._load_model("tiny", "cpu")
             m2 = plt._load_model("tiny", "cpu")
         load.assert_called_once_with("tiny", device="cpu")
@@ -107,7 +109,7 @@ class TestModelCache:
         model_a = object()
         model_b = object()
         with patch(
-            "prepare_local_transcript.whisper.load_model",
+            "yt_summary.transcription.local.whisper.load_model",
             side_effect=[model_a, model_b],
         ) as load:
             ma = plt._load_model("tiny", "cpu")

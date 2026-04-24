@@ -1,3 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yt_summary"]
+
 [project]
 name = "yt-summary"
 version = "0.1.0"
@@ -27,11 +34,14 @@ dependencies = [
     "yt-dlp>=2026.3.17",
 ]
 
+[project.scripts]
+yt-summary = "yt_summary.main:main"
+
 [tool.uv.extra-build-dependencies]
 openai-whisper = ["setuptools<81"]  # pkg_resources was removed from default install in setuptools 81
 
 [tool.pytest.ini_options]
-pythonpath = ["."]
+pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-m 'not integration'"
 markers = [
@@ -65,7 +75,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S101", "S105", "S106", "S108", "PLR2004", "SLF001", "ARG", "ANN", "INP001"]
-"main.py" = ["INP001"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -77,9 +86,9 @@ indent-style = "space"
 [tool.pyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.11"  # 2026-04-22: diverges from Boilerplate (3.13) — deps pin Python 3.11.9
-include = ["."]
+include = ["src", "tests"]
 exclude = ["**/node_modules", "**/__pycache__", "**/.*", ".venv", "build", "dist"]
-extraPaths = ["."]  # 2026-04-22: mirror pytest pythonpath so tests/ can import sibling modules (main, my_logger, ...)
+extraPaths = ["src"]  # mirror pytest pythonpath so `from yt_summary.*` resolves in both src/ and tests/
 reportUnknownVariableType = "error"
 reportUnknownArgumentType = "error"
 reportUnknownMemberType = "error"

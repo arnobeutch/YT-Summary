@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from main import main
+from yt_summary.main import main
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -81,14 +81,14 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("main.handlers.handle_url", return_value=_make_transcript()) as h_url,
-            patch("main.handlers.handle_media") as h_media,
-            patch("main.handlers.handle_text") as h_text,
-            patch("main.handlers.write_transcript_file") as write,
-            patch("main.handlers.summarize") as summ,
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
+            patch("yt_summary.main.handlers.handle_media") as h_media,
+            patch("yt_summary.main.handlers.handle_text") as h_text,
+            patch("yt_summary.main.handlers.write_transcript_file") as write,
+            patch("yt_summary.main.handlers.summarize") as summ,
         ):
             parse.return_value = _make_args(input_path=[_URL])
             main()
@@ -105,14 +105,16 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_MEDIA_CLASSIFICATION),
-            patch("main.handlers.handle_url") as h_url,
-            patch("main.handlers.handle_media", return_value=_make_transcript()) as h_media,
-            patch("main.handlers.handle_text") as h_text,
-            patch("main.handlers.write_transcript_file"),
-            patch("main.handlers.summarize"),
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_MEDIA_CLASSIFICATION),
+            patch("yt_summary.main.handlers.handle_url") as h_url,
+            patch(
+                "yt_summary.main.handlers.handle_media", return_value=_make_transcript()
+            ) as h_media,
+            patch("yt_summary.main.handlers.handle_text") as h_text,
+            patch("yt_summary.main.handlers.write_transcript_file"),
+            patch("yt_summary.main.handlers.summarize"),
         ):
             parse.return_value = _make_args(input_path=["x.mp4"])
             main()
@@ -127,14 +129,16 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_TEXT_CLASSIFICATION),
-            patch("main.handlers.handle_url") as h_url,
-            patch("main.handlers.handle_media") as h_media,
-            patch("main.handlers.handle_text", return_value=_make_transcript()) as h_text,
-            patch("main.handlers.write_transcript_file"),
-            patch("main.handlers.summarize"),
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_TEXT_CLASSIFICATION),
+            patch("yt_summary.main.handlers.handle_url") as h_url,
+            patch("yt_summary.main.handlers.handle_media") as h_media,
+            patch(
+                "yt_summary.main.handlers.handle_text", return_value=_make_transcript()
+            ) as h_text,
+            patch("yt_summary.main.handlers.write_transcript_file"),
+            patch("yt_summary.main.handlers.summarize"),
         ):
             parse.return_value = _make_args(input_path=["x.txt"])
             main()
@@ -150,13 +154,13 @@ class TestDispatcher:
         monkeypatch.chdir(tmp_path)
         # An API-key preflight runs before the pipeline; stub it out.
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("main.make_summarizer"),  # preflight ok
-            patch("main.handlers.handle_url", return_value=_make_transcript()),
-            patch("main.handlers.write_transcript_file"),
-            patch("main.handlers.summarize") as summ,
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("yt_summary.main.make_summarizer"),  # preflight ok
+            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()),
+            patch("yt_summary.main.handlers.write_transcript_file"),
+            patch("yt_summary.main.handlers.summarize") as summ,
         ):
             parse.return_value = _make_args(input_path=[_URL], summarize=True)
             main()
@@ -169,13 +173,13 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("main.make_summarizer") as preflight,
-            patch("main.handlers.handle_url", return_value=_make_transcript()),
-            patch("main.handlers.write_transcript_file"),
-            patch("main.handlers.summarize") as summ,
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("yt_summary.main.make_summarizer") as preflight,
+            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()),
+            patch("yt_summary.main.handlers.write_transcript_file"),
+            patch("yt_summary.main.handlers.summarize") as summ,
         ):
             parse.return_value = _make_args(
                 input_path=[_URL],
@@ -194,11 +198,11 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("main.handlers.handle_url") as h_url,
-            patch("main.handlers.write_transcript_file") as write,
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("yt_summary.main.handlers.handle_url") as h_url,
+            patch("yt_summary.main.handlers.write_transcript_file") as write,
         ):
             parse.return_value = _make_args(input_path=[_URL], dry_run=True)
             main()
@@ -213,11 +217,11 @@ class TestDispatcher:
         monkeypatch.chdir(tmp_path)
         url2 = "https://y.com/watch?v=y"
         with (
-            patch("main.my_parser.parse_args") as parse,
-            patch("main.initialize_logger"),
-            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("main.handlers.handle_url", return_value=_make_transcript()) as h_url,
-            patch("main.handlers.write_transcript_file"),
+            patch("yt_summary.main.parser.parse_args") as parse,
+            patch("yt_summary.main.initialize_logger"),
+            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
+            patch("yt_summary.main.handlers.write_transcript_file"),
         ):
             parse.return_value = _make_args(input_path=[_URL, url2])
             main()

@@ -5,17 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from markdown_writer import format_summary_markdown
-from my_logger import my_logger
-from preprocess_transcript import parse_transcript, try_resolve_speaker_names
-from q_and_a_engine import generate_summary
+from yt_summary.logger import my_logger
+from yt_summary.summarizers.engine import generate_summary
+from yt_summary.summarizers.markdown import format_summary_markdown
+from yt_summary.transcription.preprocess import parse_transcript, try_resolve_speaker_names
 
 from .base import analyze_sentiment
 from .modes import SummaryMode, get_prompt, resolve_mode
 
 if TYPE_CHECKING:
-    from model import Transcript
-    from my_settings import Settings
+    from yt_summary.model import Transcript
+    from yt_summary.settings import Settings
 
 
 class RagSummarizer:

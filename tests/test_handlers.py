@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from handlers import (
+from yt_summary.handlers import (
     Transcript,
     handle_media,
     handle_text,
@@ -13,8 +13,8 @@ from handlers import (
     summarize,
     write_transcript_file,
 )
-from my_settings import Settings
-from prepare_yt_transcript import CaptionTrack, TranscriptUnavailableError
+from yt_summary.settings import Settings
+from yt_summary.transcription.youtube_captions import CaptionTrack, TranscriptUnavailableError
 
 
 def _track(text: str = "caption text", lang: str = "en", kind: str = "manual") -> CaptionTrack:
@@ -66,10 +66,10 @@ class TestHandleUrl:
     ) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
-            patch("handlers.pya.fetch_video_title", return_value="My Video"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.fetch_video_title", return_value="My Video"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 return_value=_track(text="bonjour", lang="fr", kind="manual"),
             ),
         ):
@@ -83,10 +83,10 @@ class TestHandleUrl:
     def test_caption_other_lang_forces_summary_in_english(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
-            patch("handlers.pya.fetch_video_title", return_value="V"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.fetch_video_title", return_value="V"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 return_value=_track(text="hallo", lang="de", kind="manual"),
             ),
         ):
@@ -97,10 +97,10 @@ class TestHandleUrl:
     def test_caption_auto_marked_as_yt_auto(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
-            patch("handlers.pya.fetch_video_title", return_value="V"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.fetch_video_title", return_value="V"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 return_value=_track(text="x", lang="en", kind="auto"),
             ),
         ):
@@ -113,17 +113,17 @@ class TestHandleUrl:
     ) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("lang_not_found", "no caps"),
             ),
             patch(
-                "handlers.pya.download_youtube_audio",
+                "yt_summary.handlers.pya.download_youtube_audio",
                 return_value=(tmp_path / "audio.wav", "Remote Video"),
             ),
             patch(
-                "handlers.plt.transcribe_audio_full",
+                "yt_summary.handlers.plt.transcribe_audio_full",
                 return_value=("transcribed body", "fr", []),
             ) as transcribe,
         ):
@@ -145,17 +145,17 @@ class TestHandleUrl:
     ) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("empty_payload", "empty"),
             ),
             patch(
-                "handlers.pya.download_youtube_audio",
+                "yt_summary.handlers.pya.download_youtube_audio",
                 return_value=(tmp_path / "audio.wav", "Diarized"),
             ),
             patch(
-                "handlers.plt.transcribe_audio_with_diarization",
+                "yt_summary.handlers.plt.transcribe_audio_with_diarization",
                 return_value=("Alice: hi", "en"),
             ) as transcribe,
         ):
@@ -177,17 +177,17 @@ class TestHandleUrl:
             whisper_model_size="medium",
         )
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("lang_not_found", "x"),
             ),
             patch(
-                "handlers.pya.download_youtube_audio",
+                "yt_summary.handlers.pya.download_youtube_audio",
                 return_value=(tmp_path / "audio.wav", "X"),
             ),
             patch(
-                "handlers.plt.transcribe_audio_full",
+                "yt_summary.handlers.plt.transcribe_audio_full",
                 return_value=("body", "en", []),
             ) as transcribe,
         ):
@@ -204,17 +204,17 @@ class TestHandleUrl:
     ) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
             patch(
-                "handlers.pytt.get_youtube_transcript",
+                "yt_summary.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("lang_not_found", "x"),
             ),
             patch(
-                "handlers.pya.download_youtube_audio",
+                "yt_summary.handlers.pya.download_youtube_audio",
                 return_value=(tmp_path / "audio.wav", "V"),
             ),
             patch(
-                "handlers.plt.transcribe_audio_full",
+                "yt_summary.handlers.plt.transcribe_audio_full",
                 return_value=("corps", "fr", []),
             ) as transcribe,
         ):
@@ -230,9 +230,9 @@ class TestHandleUrl:
     def test_title_sanitized(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", downloads_dir=tmp_path / "dl")
         with (
-            patch("handlers.pya.extract_video_id", return_value="vid"),
-            patch("handlers.pya.fetch_video_title", return_value="Bad/Name:Here"),
-            patch("handlers.pytt.get_youtube_transcript", return_value=_track()),
+            patch("yt_summary.handlers.pya.extract_video_id", return_value="vid"),
+            patch("yt_summary.handlers.pya.fetch_video_title", return_value="Bad/Name:Here"),
+            patch("yt_summary.handlers.pytt.get_youtube_transcript", return_value=_track()),
         ):
             t = handle_url(_args(input_path="https://y.com/watch?v=vid"), s)
         assert t.title == "Bad_Name_Here"
@@ -245,12 +245,12 @@ class TestHandleMedia:
         media.write_text("")
         audio_tmp = str(tmp_path / "audio.wav")
         with (
-            patch("handlers.plt.extract_audio", return_value=audio_tmp),
+            patch("yt_summary.handlers.plt.extract_audio", return_value=audio_tmp),
             patch(
-                "handlers.plt.transcribe_audio_full",
+                "yt_summary.handlers.plt.transcribe_audio_full",
                 return_value=("Hello world", "en", []),
             ) as transcribe,
-            patch("handlers.Path.unlink"),
+            patch("yt_summary.handlers.Path.unlink"),
         ):
             t = handle_media(_args(input_path=str(media), language=None), s)
         assert t.text == "Hello world"
@@ -265,12 +265,12 @@ class TestHandleMedia:
         media.write_text("")
         audio_tmp = str(tmp_path / "audio.wav")
         with (
-            patch("handlers.plt.extract_audio", return_value=audio_tmp),
+            patch("yt_summary.handlers.plt.extract_audio", return_value=audio_tmp),
             patch(
-                "handlers.plt.transcribe_audio_full",
+                "yt_summary.handlers.plt.transcribe_audio_full",
                 return_value=("bonjour", "fr", []),
             ) as transcribe,
-            patch("handlers.Path.unlink"),
+            patch("yt_summary.handlers.Path.unlink"),
         ):
             t = handle_media(_args(input_path=str(media), language="fr"), s)
         transcribe.assert_called_once_with(audio_tmp, model_size="small", language="fr")
@@ -282,9 +282,11 @@ class TestHandleMedia:
         media.write_text("")
         audio_tmp = str(tmp_path / "audio.wav")
         with (
-            patch("handlers.plt.extract_audio", return_value=audio_tmp),
-            patch("handlers.plt.transcribe_audio_full", return_value=("hallo", "de", [])),
-            patch("handlers.Path.unlink"),
+            patch("yt_summary.handlers.plt.extract_audio", return_value=audio_tmp),
+            patch(
+                "yt_summary.handlers.plt.transcribe_audio_full", return_value=("hallo", "de", [])
+            ),
+            patch("yt_summary.handlers.Path.unlink"),
         ):
             t = handle_media(_args(input_path=str(media), language=None), s)
         assert t.language == "en"
@@ -294,7 +296,7 @@ class TestHandleMedia:
         media = tmp_path / "video.mp4"
         media.write_text("")
         with patch(
-            "handlers.plt.transcribe_video_file_with_diarization",
+            "yt_summary.handlers.plt.transcribe_video_file_with_diarization",
             return_value=("Alice: hi", "en"),
         ):
             t = handle_media(
@@ -395,6 +397,6 @@ class TestSummarize:
             diarized=False,
         )
         fake = MagicMock()
-        with patch("handlers.make_summarizer", return_value=fake):
+        with patch("yt_summary.handlers.make_summarizer", return_value=fake):
             summarize(t, _args(input_path="u"), s)
         fake.summarize.assert_called_once_with(t, input_path="u")

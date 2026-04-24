@@ -29,7 +29,7 @@ def test_transcribe_audio_full_tiny_model() -> None:
     if not _FIXTURE.exists():
         pytest.skip(f"Integration fixture missing: {_FIXTURE}")
 
-    from prepare_local_transcript import transcribe_audio_full
+    from yt_summary.transcription.local import transcribe_audio_full
 
     text, language, segments = transcribe_audio_full(str(_FIXTURE), model_size="tiny")
     assert isinstance(text, str)
@@ -43,7 +43,7 @@ def test_extract_then_transcribe(tmp_path: Path) -> None:
     if not _FIXTURE.exists():
         pytest.skip(f"Integration fixture missing: {_FIXTURE}")
 
-    from prepare_local_transcript import extract_audio, transcribe_audio_full
+    from yt_summary.transcription.local import extract_audio, transcribe_audio_full
 
     audio_path = extract_audio(str(_FIXTURE))
     try:

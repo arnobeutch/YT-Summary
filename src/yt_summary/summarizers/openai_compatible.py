@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING
 import openai
 from openai import OpenAI
 
-from markdown_writer import simple_format_markdown
-from my_logger import my_logger
+from yt_summary.logger import my_logger
+from yt_summary.summarizers.markdown import simple_format_markdown
 
 from .base import analyze_sentiment
 from .modes import get_prompt, resolve_mode
 
 if TYPE_CHECKING:
-    from model import Transcript
-    from my_settings import Settings
+    from yt_summary.model import Transcript
+    from yt_summary.settings import Settings
 
 
 class OpenAICompatibleSummarizer:

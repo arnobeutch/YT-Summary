@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from yt_dlp.utils import DownloadError
 
-from prepare_yt_transcript import (
+from yt_summary.transcription.youtube_captions import (
     CaptionTrack,
     TranscriptUnavailableError,
     _extract_text_from_subtitle_file,
@@ -165,7 +165,7 @@ class TestGetYoutubeTranscript:
             "automatic_captions": {},
         }
         ydl = _ydl_returning(info, write_files={"abc.fr.srt": _SAMPLE_SRT})
-        with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
+        with patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl):
             track = get_youtube_transcript("abc", requested_lang="fr")
         assert isinstance(track, CaptionTrack)
         assert track.lang == "fr"
@@ -181,7 +181,7 @@ class TestGetYoutubeTranscript:
             "automatic_captions": {"en": [{}]},
         }
         ydl = _ydl_returning(info, write_files={"abc.en.srt": _SAMPLE_SRT})
-        with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
+        with patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl):
             track = get_youtube_transcript("abc")
         assert track.lang == "en"
         assert track.kind == "auto"
@@ -196,7 +196,7 @@ class TestGetYoutubeTranscript:
             "automatic_captions": {},
         }
         ydl = _ydl_returning(info, write_files={"abc.fr.srt": _SAMPLE_SRT})
-        with patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl):
+        with patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl):
             track = get_youtube_transcript("abc", requested_lang="fr")
         assert track.lang == "fr"
 
@@ -208,7 +208,7 @@ class TestGetYoutubeTranscript:
         }
         ydl = _ydl_returning(info)
         with (
-            patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl),
+            patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl),
             pytest.raises(TranscriptUnavailableError) as excinfo,
         ):
             get_youtube_transcript("abc")
@@ -220,7 +220,10 @@ class TestGetYoutubeTranscript:
         ctx.__enter__.return_value = ctx
         ctx.__exit__.return_value = False
         with (
-            patch("prepare_yt_transcript.yt_dlp.YoutubeDL", MagicMock(return_value=ctx)),
+            patch(
+                "yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL",
+                MagicMock(return_value=ctx),
+            ),
             pytest.raises(TranscriptUnavailableError) as excinfo,
         ):
             get_youtube_transcript("abc")
@@ -235,7 +238,7 @@ class TestGetYoutubeTranscript:
         }
         ydl = _ydl_returning(info, write_files={})
         with (
-            patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl),
+            patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl),
             pytest.raises(TranscriptUnavailableError) as excinfo,
         ):
             get_youtube_transcript("abc")
@@ -249,7 +252,7 @@ class TestGetYoutubeTranscript:
         }
         ydl = _ydl_returning(info, write_files={"abc.fr.srt": "WEBVTT\n\n"})
         with (
-            patch("prepare_yt_transcript.yt_dlp.YoutubeDL", ydl),
+            patch("yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL", ydl),
             pytest.raises(TranscriptUnavailableError) as excinfo,
         ):
             get_youtube_transcript("abc")

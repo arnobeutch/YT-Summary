@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from my_parser import classify_input, is_valid_url, parse_args
+from yt_summary.parser import classify_input, is_valid_url, parse_args
 
 if TYPE_CHECKING:
     from pathlib import Path

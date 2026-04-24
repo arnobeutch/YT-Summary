@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from preprocess_transcript import parse_transcript, try_resolve_speaker_names
+from yt_summary.transcription.preprocess import parse_transcript, try_resolve_speaker_names
 
 
 class TestParseTranscript:

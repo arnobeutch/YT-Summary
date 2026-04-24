@@ -18,7 +18,7 @@ from pyannote.audio import Pipeline
 from pyannote.core import Segment, Timeline
 from tqdm import tqdm
 
-from my_logger import my_logger
+from yt_summary.logger import my_logger
 
 MIN_SEGMENT_DURATION: float = 1.5  # seconds; skip whisper output shorter than this
 _MAX_SPEAKER_GAP: float = 1.0  # seconds; merge consecutive same-speaker segments within this gap
