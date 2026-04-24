@@ -11,6 +11,7 @@ import prepare_yt_transcript as pytt
 import summarize_transcript as st
 from my_logger import initialize_logger, my_logger
 from my_settings import Settings
+from prepare_yt_transcript import TranscriptUnavailableError
 
 _WRAP_WIDTH = 80
 
@@ -52,11 +53,12 @@ def main() -> None:
     if args.is_url:
         video_id = pya.extract_video_id(args.input_path)
         my_logger.debug(f"Video ID: {video_id}")
-        transcript = pytt.get_youtube_transcript(video_id)
-
-        if "Error" in transcript:
+        try:
+            transcript = pytt.get_youtube_transcript(video_id)
+        except TranscriptUnavailableError as exc:
             my_logger.info(
-                "No YouTube transcript available — falling back to local transcription.",
+                f"No YouTube transcript available ({exc.reason}: {exc}) — "
+                f"falling back to local transcription.",
             )
             audio_path, raw_title = pya.download_youtube_audio(
                 args.input_path,

@@ -114,13 +114,15 @@ class TestMainUrlBranch:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        from prepare_yt_transcript import TranscriptUnavailableError
+
         monkeypatch.chdir(tmp_path)
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
             patch(
                 "main.pytt.get_youtube_transcript",
-                return_value="Error: Transcript not found.",
+                side_effect=TranscriptUnavailableError("lang_not_found", "no caps"),
             ),
             patch(
                 "main.pya.download_youtube_audio",
@@ -146,13 +148,15 @@ class TestMainUrlBranch:
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        from prepare_yt_transcript import TranscriptUnavailableError
+
         monkeypatch.chdir(tmp_path)
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
             patch(
                 "main.pytt.get_youtube_transcript",
-                return_value="Error: Transcript not found.",
+                side_effect=TranscriptUnavailableError("empty_payload", "empty"),
             ),
             patch(
                 "main.pya.download_youtube_audio",
