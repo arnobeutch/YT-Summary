@@ -90,6 +90,7 @@ _ALL_ENV_KEYS = (
     "OUTPUT_DIR",
     "DOWNLOADS_DIR",
     "WRAP_WIDTH",
+    "SUMMARY_MODE",
 )
 
 
@@ -135,6 +136,7 @@ class TestSettingsFromEnv:
         assert s.output_dir == Path("results")
         assert s.downloads_dir == Path("downloads")
         assert s.wrap_width == 80
+        assert s.summary_mode == "auto"
 
     def test_full_config_overrides(
         self,
@@ -153,6 +155,7 @@ class TestSettingsFromEnv:
         monkeypatch.setenv("OUTPUT_DIR", "out")
         monkeypatch.setenv("DOWNLOADS_DIR", "dl")
         monkeypatch.setenv("WRAP_WIDTH", "100")
+        monkeypatch.setenv("SUMMARY_MODE", "meeting")
         s = Settings.from_env()
         assert s.openai_api_key == "sk-test"
         assert s.openrouter_api_key == "or-test"
@@ -165,6 +168,7 @@ class TestSettingsFromEnv:
         assert s.output_dir == Path("out")
         assert s.downloads_dir == Path("dl")
         assert s.wrap_width == 100
+        assert s.summary_mode == "meeting"
 
     def test_empty_string_env_treated_as_unset(
         self,

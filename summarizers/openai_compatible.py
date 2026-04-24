@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 import openai
 from openai import OpenAI
 
-import my_constants
 from markdown_writer import simple_format_markdown
 from my_logger import my_logger
 
 from .base import analyze_sentiment
+from .modes import get_prompt, resolve_mode
 
 if TYPE_CHECKING:
     from model import Transcript
@@ -43,13 +43,13 @@ class OpenAICompatibleSummarizer:
 
     def summarize(self, transcript: Transcript, *, input_path: str) -> None:
         """Send the prompt to the API and write the resulting summary to disk."""
-        if transcript.language == "fr":
-            prompt = my_constants.OPENAI_PROMPT_FR + transcript.text
-        elif transcript.language == "en":
-            prompt = my_constants.OPENAI_PROMPT_EN + transcript.text
-        else:
-            err_msg = f"Summarizer language not supported: {transcript.language!r}"
-            raise ValueError(err_msg)
+        from typing import cast
+
+        from .modes import SummaryMode
+
+        mode = resolve_mode(cast(SummaryMode, self.settings.summary_mode), transcript)
+        prompt = get_prompt(mode, transcript.language) + transcript.text
+        my_logger.info(f"Summary mode: {mode}")
 
         sentiment = analyze_sentiment(transcript.text)
 

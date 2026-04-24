@@ -52,6 +52,7 @@ def _settings(**overrides: object) -> Settings:
         "ollama_model": "mistral",
         "whisper_model_size": "small",
         "wrap_width": 80,
+        "summary_mode": "auto",
     }
     base.update(overrides)
     return Settings(**base)  # type: ignore[arg-type]  # frozen dataclass kwargs

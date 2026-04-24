@@ -129,6 +129,17 @@ def parse_args() -> argparse.Namespace:
         help="Where downloaded YT audio is cached. Default: env DOWNLOADS_DIR, or ./downloads.",
     )
     parser.add_argument(
+        "--summary-mode",
+        dest="summary_mode",
+        choices={"meeting", "source", "auto"},
+        default=None,
+        help=(
+            "Summary scenario: meeting (multi-speaker discussion), source "
+            "(lecture/article/commentary; tags facts vs opinion vs speculation), "
+            "or auto (default — heuristic). Default: env SUMMARY_MODE, or 'auto'."
+        ),
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",

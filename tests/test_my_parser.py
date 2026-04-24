@@ -146,6 +146,18 @@ class TestParseArgs:
         assert ns.llm_model is None
         assert ns.output_dir is None
         assert ns.downloads_dir is None
+        assert ns.summary_mode is None
+
+    def test_summary_mode_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["https://y.com/watch?v=x", "--summary-mode", "meeting"],
+            monkeypatch,
+        )
+        assert ns.summary_mode == "meeting"
+
+    def test_summary_mode_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(["https://y.com/watch?v=x", "--summary-mode", "novel"], monkeypatch)
 
     def test_model_size_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(

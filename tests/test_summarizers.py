@@ -28,6 +28,7 @@ def _settings(**overrides: object) -> Settings:
         "ollama_model": "mistral",
         "whisper_model_size": "small",
         "wrap_width": 80,
+        "summary_mode": "source",
     }
     base.update(overrides)
     return Settings(**base)  # type: ignore[arg-type]
@@ -109,14 +110,26 @@ class TestOpenAISummarizer:
         assert "summary body" in out.read_text()
 
     def test_french_uses_french_prompt(self, tmp_path: Path) -> None:
-        s = _settings(output_dir=tmp_path / "out")
+        s = _settings(output_dir=tmp_path / "out", summary_mode="source")
         summarizer = OpenAISummarizer(s)
         client = self._mock_client(content="résumé")
         with patch("summarizers.openai_compatible.OpenAI", return_value=client):
             summarizer.summarize(_transcript(language="fr", title="vidfr"), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         prompt = kwargs["messages"][1]["content"]
-        assert "expert en résumé" in prompt
+        # SOURCE_PROMPT_FR uses "TL;DR :" header.
+        assert "TL;DR :" in prompt
+
+    def test_meeting_mode_uses_meeting_prompt(self, tmp_path: Path) -> None:
+        s = _settings(output_dir=tmp_path / "out", summary_mode="meeting")
+        summarizer = OpenAISummarizer(s)
+        client = self._mock_client()
+        with patch("summarizers.openai_compatible.OpenAI", return_value=client):
+            summarizer.summarize(_transcript(language="en"), input_path="u")
+        _, kwargs = client.chat.completions.create.call_args
+        prompt = kwargs["messages"][1]["content"]
+        # MEETING_PROMPT_EN uses "Topic:" header.
+        assert "Topic:" in prompt
 
     def test_unsupported_language_raises(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out")

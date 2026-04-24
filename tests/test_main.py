@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 def _make_args(**overrides: object) -> MagicMock:
     defaults: dict[str, object] = {
         "input_path": "",
-        "language": "en",
+        "language": None,
         "diarize": False,
         "summarize": False,
         "with_openai": False,
@@ -35,6 +35,7 @@ def _make_args(**overrides: object) -> MagicMock:
         "llm_model": None,
         "output_dir": None,
         "downloads_dir": None,
+        "summary_mode": None,
     }
     defaults.update(overrides)
     return MagicMock(**defaults)

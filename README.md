@@ -38,7 +38,14 @@ uv run main.py ./existing_transcript.txt --summarize
 | `--llm-model` | Model name for the chosen provider. Default from `LLM_MODEL` env or per-provider default. |
 | `--output-dir` | Where outputs land. Default from `OUTPUT_DIR` env or `./results`. |
 | `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
+| `--summary-mode` | `meeting` (multi-speaker discussion), `source` (lecture / article / commentary — tags facts vs opinion vs speculation), or `auto` (heuristic). Default from `SUMMARY_MODE` env or `auto`. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
+
+### Summary modes
+
+- **`meeting`** — produces a structured summary tailored to discussions: topic, hashtags, takeaways (attributed to speakers), Q&A, decisions, action items.
+- **`source`** — produces an evidence-aware summary tailored to a single source (interview, lecture, article reading): TL;DR, key takeaways, **facts** vs **opinions** vs **speculation**, counterpoints / alternatives, and an overall information-quality / reliability rating.
+- **`auto`** — picks `meeting` when the transcript is diarized with 2+ distinct speakers; otherwise picks `source`. Logs the choice.
 
 ### Language selection
 

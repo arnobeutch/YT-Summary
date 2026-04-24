@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from markdown_writer import format_summary_markdown
 from my_logger import my_logger
@@ -11,6 +11,7 @@ from preprocess_transcript import parse_transcript, try_resolve_speaker_names
 from q_and_a_engine import generate_summary
 
 from .base import analyze_sentiment
+from .modes import SummaryMode, get_prompt, resolve_mode
 
 if TYPE_CHECKING:
     from model import Transcript
@@ -35,6 +36,11 @@ class RagSummarizer:
     def summarize(self, transcript: Transcript, *, input_path: str) -> Path:
         """Generate a markdown summary on disk for the given transcript."""
         _ = input_path  # not used by RAG (matches Summarizer Protocol)
+
+        mode = resolve_mode(cast(SummaryMode, self.settings.summary_mode), transcript)
+        prompt = get_prompt(mode, transcript.language)
+        my_logger.info(f"Summary mode: {mode}")
+
         my_logger.info("Parsing transcript...")
         utterances = parse_transcript(transcript.text)
         utterances = try_resolve_speaker_names(utterances)
@@ -45,6 +51,7 @@ class RagSummarizer:
                 utterances,
                 language=transcript.language,
                 model=self._model_name(),
+                prompt=prompt,
             )
         except Exception:
             my_logger.exception("Error generating summary")

@@ -14,6 +14,7 @@ _DEFAULT_OPENAI_MODEL = "gpt-4o"
 _DEFAULT_OLLAMA_MODEL = "mistral"
 _DEFAULT_LLM_PROVIDER = "openai"
 _DEFAULT_WRAP_WIDTH = 80
+_DEFAULT_SUMMARY_MODE = "auto"
 
 
 def _load_dotenv(path: Path = Path(".env")) -> None:
@@ -51,6 +52,7 @@ class Settings:
     output_dir: Path = field(default_factory=lambda: Path("results"))
     downloads_dir: Path = field(default_factory=lambda: Path("downloads"))
     wrap_width: int = _DEFAULT_WRAP_WIDTH
+    summary_mode: str = _DEFAULT_SUMMARY_MODE
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -72,4 +74,5 @@ class Settings:
             output_dir=Path(os.environ.get("OUTPUT_DIR", "results")),
             downloads_dir=Path(os.environ.get("DOWNLOADS_DIR", "downloads")),
             wrap_width=int(os.environ.get("WRAP_WIDTH", str(_DEFAULT_WRAP_WIDTH))),
+            summary_mode=os.environ.get("SUMMARY_MODE", _DEFAULT_SUMMARY_MODE),
         )

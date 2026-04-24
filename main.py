@@ -31,6 +31,7 @@ def _apply_cli_overrides(args: argparse.Namespace, base: Settings) -> Settings:
         whisper_model_size=args.model_size or base.whisper_model_size,
         llm_provider=provider,
         llm_model=args.llm_model or base.llm_model,
+        summary_mode=args.summary_mode or base.summary_mode,
     )
 
 

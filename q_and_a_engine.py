@@ -58,13 +58,16 @@ def generate_summary(
     utterances: list[tuple[str, str]],
     language: str,
     model: str,
+    prompt: str | None = None,
 ) -> str:
     """Return markdown-formatted summary from structured utterances.
 
     Args:
-        utterances (list[tuple[str, str]]): Speaker-tagged utterances.
-        language (str): 'fr' or 'en'.
-        model (str): Model name for Ollama (e.g., 'mistral').
+        utterances: Speaker-tagged utterances.
+        language: 'fr' or 'en' — used only when ``prompt`` is not given.
+        model: Model name for Ollama (e.g., 'mistral').
+        prompt: Override the built-in language-defaulted prompt (e.g. for
+            summary-mode templates).
 
     Returns:
         str: Markdown summary of the meeting in the requested language.
@@ -81,6 +84,9 @@ def generate_summary(
         return_source_documents=False,
     )
 
-    prompt = my_constants.RAG_FRENCH_PROMPT if language == "fr" else my_constants.RAG_ENGLISH_PROMPT
+    if prompt is None:
+        prompt = (
+            my_constants.RAG_FRENCH_PROMPT if language == "fr" else my_constants.RAG_ENGLISH_PROMPT
+        )
     result = qa_chain.invoke({"query": prompt})
     return result["result"]
