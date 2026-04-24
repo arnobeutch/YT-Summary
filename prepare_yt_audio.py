@@ -45,12 +45,18 @@ def fetch_video_title(url: str) -> str:
     return cast(str, info.get("title") or info.get("id") or "unknown")
 
 
-def download_youtube_audio(url: str, output_dir: Path) -> tuple[Path, str]:
+def download_youtube_audio(
+    url: str,
+    output_dir: Path,
+    *,
+    force: bool = False,
+) -> tuple[Path, str]:
     """Download the audio track of a YouTube video as a wav file.
 
     Args:
         url: Full YouTube URL.
         output_dir: Directory to save the downloaded wav file in.
+        force: If True, re-download even if the .wav already exists.
 
     Returns:
         ``(audio_path, video_title)`` — path to the downloaded wav and the
@@ -58,6 +64,16 @@ def download_youtube_audio(url: str, output_dir: Path) -> tuple[Path, str]:
 
     """
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Cache hit: the .wav for this video id already exists.
+    if not force:
+        video_id = extract_video_id(url)
+        cached_wav = output_dir / f"{video_id}.wav"
+        if cached_wav.exists():
+            my_logger.info(f"Using cached audio at {cached_wav}")
+            title = fetch_video_title(url)
+            return cached_wav, title
+
     my_logger.info(f"Downloading audio from {url}")
 
     opts: Any = {

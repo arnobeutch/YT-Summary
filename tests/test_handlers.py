@@ -32,6 +32,7 @@ def _args(**overrides: object) -> MagicMock:
         "diarize": False,
         "summarize": False,
         "with_openai": False,
+        "force": False,
         "model_size": None,
         "llm_provider": None,
         "llm_model": None,

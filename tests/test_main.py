@@ -36,6 +36,7 @@ def _make_args(**overrides: object) -> MagicMock:
         "output_dir": None,
         "downloads_dir": None,
         "summary_mode": None,
+        "force": False,
     }
     defaults.update(overrides)
     return MagicMock(**defaults)

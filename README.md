@@ -39,7 +39,12 @@ uv run main.py ./existing_transcript.txt --summarize
 | `--output-dir` | Where outputs land. Default from `OUTPUT_DIR` env or `./results`. |
 | `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
 | `--summary-mode` | `meeting` (multi-speaker discussion), `source` (lecture / article / commentary — tags facts vs opinion vs speculation), or `auto` (heuristic). Default from `SUMMARY_MODE` env or `auto`. |
+| `--force` | Re-download audio and re-transcribe even when a cached `.wav` or transcript already exists. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
+
+### Caching
+
+Re-running with the same input is fast: the YT audio is reused from `./downloads/<id>.wav` if present, and the whisper transcript is reused from `./results/<title> [diarized] transcript.txt` if present. Pass `--force` to bypass both caches.
 
 ### Summary modes
 

@@ -35,6 +35,7 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
     video_id = pya.extract_video_id(args.input_path)
     my_logger.debug(f"Video ID: {video_id}")
     requested_lang: str | None = args.language
+    force: bool = bool(getattr(args, "force", False))
 
     try:
         track = pytt.get_youtube_transcript(video_id, requested_lang=requested_lang)
@@ -46,7 +47,23 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
         audio_path, raw_title = pya.download_youtube_audio(
             args.input_path,
             settings.downloads_dir,
+            force=force,
         )
+        title = sanitize_filename(raw_title)
+
+        cached = _try_load_cached_transcript(title, settings, diarize=args.diarize, force=force)
+        if cached is not None:
+            return Transcript(
+                text=cached,
+                language=derive_whisper_summary_language(
+                    requested_lang or "en",
+                    requested_lang,
+                ),
+                title=title,
+                source="whisper",
+                diarized=args.diarize,
+            )
+
         if args.diarize:
             transcribed_text, used_lang = plt.transcribe_audio_with_diarization(
                 str(audio_path),
@@ -63,7 +80,7 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
         return Transcript(
             text=transcribed_text,
             language=summary_lang,
-            title=sanitize_filename(raw_title),
+            title=title,
             source="whisper",
             diarized=args.diarize,
         )
@@ -79,6 +96,24 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
         source="yt_manual" if track.kind == "manual" else "yt_auto",
         diarized=False,
     )
+
+
+def _try_load_cached_transcript(
+    title: str,
+    settings: Settings,
+    *,
+    diarize: bool,
+    force: bool,
+) -> str | None:
+    """Return cached transcript text if a matching ``.txt`` already exists."""
+    if force:
+        return None
+    suffix = " diarized transcript" if diarize else " transcript"
+    cached = settings.output_dir / f"{title}{suffix}.txt"
+    if not cached.exists():
+        return None
+    my_logger.info(f"Using cached transcript at {cached}")
+    return cached.read_text(encoding="utf8")
 
 
 def handle_media(args: argparse.Namespace, settings: Settings) -> Transcript:

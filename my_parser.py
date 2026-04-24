@@ -129,6 +129,12 @@ def parse_args() -> argparse.Namespace:
         help="Where downloaded YT audio is cached. Default: env DOWNLOADS_DIR, or ./downloads.",
     )
     parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="Re-download audio and re-transcribe even if cached outputs exist.",
+    )
+    parser.add_argument(
         "--summary-mode",
         dest="summary_mode",
         choices={"meeting", "source", "auto"},
