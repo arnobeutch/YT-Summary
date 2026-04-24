@@ -41,7 +41,8 @@ def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:
     try:
         track = pytt.get_youtube_transcript(video_id, requested_lang=requested_lang)
     except TranscriptUnavailableError as exc:
-        my_logger.info(
+        log = my_logger.warning if exc.reason == "download_failed" else my_logger.info
+        log(
             f"No YouTube transcript available ({exc.reason}: {exc}) — "
             f"falling back to local transcription.",
         )

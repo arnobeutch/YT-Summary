@@ -52,9 +52,9 @@ def _ydl_returning(
         outdir = Path(outtmpl).parent if outtmpl else Path()
 
         def _extract_info(_url: str, *, download: bool = True) -> dict[str, Any]:
-            _ = download
-            for name, body in files_to_write.items():
-                (outdir / name).write_text(body, encoding="utf-8")
+            if download:  # Phase 1 (download=False) must not write files
+                for name, body in files_to_write.items():
+                    (outdir / name).write_text(body, encoding="utf-8")
             return info
 
         ctx.extract_info.side_effect = _extract_info
@@ -122,6 +122,24 @@ class TestPickCaption:
         }
         # Without requested_lang, en is the implicit preference.
         assert _pick_caption(info) == ("en", "manual")
+
+    def test_prefix_match_en_us_beats_auto_en(self) -> None:
+        # Real-world case: manual track is "en-US", auto is "en".
+        # Without prefix matching the picker misses "en-US" and falls through
+        # to auto "en".  With prefix matching, manual "en-US" wins.
+        info: dict[str, Any] = {
+            "subtitles": {"en-US": [{}]},
+            "automatic_captions": {"en": [{}]},
+        }
+        assert _pick_caption(info) == ("en-US", "manual")
+
+    def test_prefix_match_requested_lang(self) -> None:
+        # Requested "fr" should match "fr-FR" in subtitles.
+        info: dict[str, Any] = {
+            "subtitles": {"fr-FR": [{}]},
+            "automatic_captions": {"fr": [{}]},
+        }
+        assert _pick_caption(info, requested_lang="fr") == ("fr-FR", "manual")
 
 
 class TestExtractTextFromSubtitleFile:
@@ -228,6 +246,33 @@ class TestGetYoutubeTranscript:
         ):
             get_youtube_transcript("abc")
         assert excinfo.value.reason == "list_failed"
+
+    def test_caption_download_error_raises_download_failed(self) -> None:
+        # Phase 1 (info, download=False) succeeds; Phase 2 (download=True) gets 429.
+        info: dict[str, Any] = {
+            "id": "abc",
+            "subtitles": {"en": [{}]},
+            "automatic_captions": {},
+        }
+        ctx_info = MagicMock()
+        ctx_info.extract_info.return_value = info
+        ctx_info.__enter__.return_value = ctx_info
+        ctx_info.__exit__.return_value = False
+
+        ctx_dl = MagicMock()
+        ctx_dl.extract_info.side_effect = DownloadError("429")
+        ctx_dl.__enter__.return_value = ctx_dl
+        ctx_dl.__exit__.return_value = False
+
+        with (
+            patch(
+                "yt_summary.transcription.youtube_captions.yt_dlp.YoutubeDL",
+                MagicMock(side_effect=[ctx_info, ctx_dl]),
+            ),
+            pytest.raises(TranscriptUnavailableError) as excinfo,
+        ):
+            get_youtube_transcript("abc")
+        assert excinfo.value.reason == "download_failed"
 
     def test_listed_but_no_file_raises_empty_payload(self) -> None:
         # Track is listed but yt-dlp doesn't actually write the file.

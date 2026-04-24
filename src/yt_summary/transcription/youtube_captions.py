@@ -57,11 +57,26 @@ def _build_url(video_id: str) -> str:
     return f"https://www.youtube.com/watch?v={video_id}"
 
 
+def _match_lang_key(tracks: dict[str, Any], lang: str) -> str | None:
+    """Return the actual key in ``tracks`` for ``lang``, or ``None``.
+
+    Tries exact match first, then prefix match so that requesting ``"en"``
+    also finds ``"en-US"``, ``"en-GB"``, etc.
+    """
+    if lang in tracks:
+        return lang
+    prefix = lang + "-"
+    return next((k for k in tracks if k.startswith(prefix)), None)
+
+
 def _pick_caption(
     info: dict[str, Any],
     requested_lang: str | None = None,
 ) -> tuple[str, CaptionKind] | None:
-    """Return ``(lang, kind)`` for the best available caption track.
+    """Return ``(lang_key, kind)`` for the best available caption track.
+
+    ``lang_key`` is the actual key from the yt-dlp info dict (e.g. ``"en-US"``).
+    Callers should normalise it to the base language code for downstream use.
 
     Priority, top-down (manual beats auto across languages):
       1. Manual @ ``requested_lang`` (if set).
@@ -82,11 +97,13 @@ def _pick_caption(
         preferred.append("en")
 
     for lang in preferred:
-        if lang in subtitles:
-            return (lang, "manual")
+        key = _match_lang_key(subtitles, lang)
+        if key is not None:
+            return (key, "manual")
     for lang in preferred:
-        if lang in auto:
-            return (lang, "auto")
+        key = _match_lang_key(auto, lang)
+        if key is not None:
+            return (key, "auto")
     if subtitles:
         return (next(iter(subtitles)), "manual")
     if auto:
@@ -141,39 +158,51 @@ def get_youtube_transcript(video_id: str, requested_lang: str | None = None) -> 
     """
     url = _build_url(video_id)
 
-    # Ask yt-dlp for both the requested language (if any) and English so we
-    # always have a sensible fallback. Other languages get downloaded only
-    # when the picker selects them — but we hint at them up-front so yt-dlp
-    # actually fetches the file.
+    # Languages to enumerate in phase 1: requested lang + English + everything
+    # else ("all").  Without hinting yt-dlp with writesubtitles opts it skips
+    # the subtitle-metadata fetch entirely, so info["subtitles"] stays empty
+    # even when manual captions exist.
     sub_langs: list[str] = []
     if requested_lang:
         sub_langs.append(requested_lang)
     if "en" not in sub_langs:
         sub_langs.append("en")
-    sub_langs.append("all")  # fallback so yt-dlp doesn't refuse other langs
+    sub_langs.append("all")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
-        opts: Any = {
-            "skip_download": True,
+
+        # Phase 1: metadata only — populates info["subtitles"] /
+        # info["automatic_captions"] without downloading any subtitle file.
+        # writesubtitles/writeautomaticsub must be True so yt-dlp runs its
+        # subtitle-metadata fetch; download=False ensures no files are written.
+        info_opts: Any = {
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": sub_langs,
-            "subtitlesformat": "srt",
-            "outtmpl": str(tmpdir / "%(id)s.%(ext)s"),
             "quiet": True,
             "no_warnings": True,
             "noprogress": True,
         }
         try:
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                info = cast(dict[str, Any], ydl.extract_info(url, download=True))
+            with yt_dlp.YoutubeDL(info_opts) as ydl:
+                info = cast(dict[str, Any], ydl.extract_info(url, download=False))
         except DownloadError as exc:
-            my_logger.exception("yt-dlp could not retrieve caption metadata", stack_info=True)
+            my_logger.warning("yt-dlp could not retrieve video metadata")
             raise TranscriptUnavailableError(
                 "list_failed",
                 "yt-dlp could not retrieve caption metadata.",
             ) from exc
+
+        manual_langs = sorted(cast(dict[str, Any], info.get("subtitles") or {}))
+        auto_langs = sorted(cast(dict[str, Any], info.get("automatic_captions") or {}))
+        track_list = (
+            "; ".join(
+                [f'"{k}" (manual)' for k in manual_langs] + [f'"{k}" (auto)' for k in auto_langs]
+            )
+            or "none"
+        )
+        my_logger.info(f"Caption tracks found: {track_list}")
 
         pick = _pick_caption(info, requested_lang=requested_lang)
         if pick is None:
@@ -182,10 +211,34 @@ def get_youtube_transcript(video_id: str, requested_lang: str | None = None) -> 
                 "No caption track found in any language.",
             )
 
-        lang, kind = pick
-        my_logger.info(f"Using {kind} captions in '{lang}' (requested: {requested_lang or 'auto'})")
+        # lang_key is the raw yt-dlp dict key (e.g. "en-US"); lang is the
+        # normalised 2-letter code used downstream (e.g. "en").
+        lang_key, kind = pick
+        lang = lang_key.split("-")[0]
+        my_logger.info(f'Picking: "{lang_key}" ({kind}) as per language selection rules')
 
-        srt_path = tmpdir / f"{info['id']}.{lang}.srt"
+        # Phase 2: download only the chosen track.
+        dl_opts: Any = {
+            "skip_download": True,
+            "writesubtitles": True,
+            "writeautomaticsub": True,
+            "subtitleslangs": [lang_key],
+            "subtitlesformat": "srt",
+            "outtmpl": str(tmpdir / "%(id)s.%(ext)s"),
+            "quiet": True,
+            "no_warnings": True,
+            "noprogress": True,
+        }
+        try:
+            with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                ydl.extract_info(url, download=True)
+        except DownloadError as exc:
+            raise TranscriptUnavailableError(
+                "download_failed",
+                f"{kind} captions (key='{lang_key}') exist but download failed: {exc}",
+            ) from exc
+
+        srt_path = tmpdir / f"{video_id}.{lang_key}.srt"
         if not srt_path.exists():
             raise TranscriptUnavailableError(
                 "empty_payload",
