@@ -8,11 +8,11 @@ formatters:
     format: '[%(levelname)s|%(module)s|L%(lineno)d] %(asctime)s: %(message)s'
     datefmt: '%Y-%m-%dT%H:%M:%S%z'
   color:
-    (): yt_summary.logger.ColorFormatter
+    (): scriber.logger.ColorFormatter
     fmt: '%(levelname)-8s %(name)s: %(message)s'
     datefmt: '%H:%M:%S'
   json:
-    (): yt_summary.logger.MyJSONFormatter
+    (): scriber.logger.MyJSONFormatter
     fmt_keys:
       level: levelname
       message: message
@@ -24,7 +24,7 @@ formatters:
       thread_name: threadName
 filters:
   no_errors:
-    (): yt_summary.logger.NonErrorFilter
+    (): scriber.logger.NonErrorFilter
 handlers:
   stdout:
     class: logging.StreamHandler
@@ -42,7 +42,7 @@ handlers:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: detailed
-    filename: logs/yt-summary.log
+    filename: logs/scriber.log
     maxBytes: 100000
     backupCount: 3
   # Structured JSON logging — opt in by uncommenting `- json_file` under root.handlers below.
@@ -51,7 +51,7 @@ handlers:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     formatter: json
-    filename: logs/yt-summary.jsonl
+    filename: logs/scriber.jsonl
     maxBytes: 100000
     backupCount: 3
     delay: true

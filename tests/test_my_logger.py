@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import colorama
 import pytest
 
-from yt_summary.logger import (
+from scriber.logger import (
     ColorFormatter,
     MyJSONFormatter,
     NonErrorFilter,
@@ -191,7 +191,7 @@ class TestExcepthook:
         self,
         caplog: pytest.LogCaptureFixture,
     ) -> None:
-        with caplog.at_level(logging.CRITICAL, logger="yt_summary.logger"):
+        with caplog.at_level(logging.CRITICAL, logger="scriber.logger"):
             _excepthook(ValueError, ValueError("x"), None)
         assert any("Unhandled exception" in r.message for r in caplog.records)
 

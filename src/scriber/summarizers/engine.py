@@ -7,8 +7,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 
-from yt_summary import constants as my_constants
-from yt_summary.logger import my_logger
+from scriber import constants as my_constants
+from scriber.logger import my_logger
 
 CHROMA_PERSIST_DIR = Path("chroma_db")
 

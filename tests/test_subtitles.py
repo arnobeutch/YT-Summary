@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from yt_summary.subtitles import _format_timestamp, write_srt, write_vtt
+from scriber.subtitles import _format_timestamp, write_srt, write_vtt
 
 if TYPE_CHECKING:
     from pathlib import Path

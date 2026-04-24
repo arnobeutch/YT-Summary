@@ -18,17 +18,17 @@ from typing import cast
 
 from langdetect import LangDetectException, detect
 
-from yt_summary.formatting import sanitize_filename, wrap_transcript
-from yt_summary.language import derive_summary_language, derive_whisper_summary_language
-from yt_summary.logger import my_logger
-from yt_summary.model import Transcript
-from yt_summary.settings import Settings
-from yt_summary.subtitles import write_srt, write_vtt
-from yt_summary.summarizers import make_summarizer
-from yt_summary.transcription import local as plt
-from yt_summary.transcription import youtube_audio as pya
-from yt_summary.transcription import youtube_captions as pytt
-from yt_summary.transcription.youtube_captions import TranscriptUnavailableError
+from scriber.formatting import sanitize_filename, wrap_transcript
+from scriber.language import derive_summary_language, derive_whisper_summary_language
+from scriber.logger import my_logger
+from scriber.model import Transcript
+from scriber.settings import Settings
+from scriber.subtitles import write_srt, write_vtt
+from scriber.summarizers import make_summarizer
+from scriber.transcription import local as plt
+from scriber.transcription import youtube_audio as pya
+from scriber.transcription import youtube_captions as pytt
+from scriber.transcription.youtube_captions import TranscriptUnavailableError
 
 
 def handle_url(args: argparse.Namespace, settings: Settings) -> Transcript:

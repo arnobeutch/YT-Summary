@@ -5,7 +5,7 @@ Note: ``extract_sections`` keys are always the French labels from
 currently emit those French labels for both languages.
 """
 
-from yt_summary.summarizers.markdown import (
+from scriber.summarizers.markdown import (
     clean_section,
     extract_sections,
     format_summary_markdown,

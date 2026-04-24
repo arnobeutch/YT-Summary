@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from yt_summary.transcription.youtube_audio import (
+from scriber.transcription.youtube_audio import (
     download_youtube_audio,
     extract_video_id,
     fetch_video_title,
@@ -46,14 +46,14 @@ class TestExtractVideoId:
 
 class TestFetchVideoTitle:
     def test_returns_title_from_info(self) -> None:
-        with patch("yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
+        with patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
             ctx = MagicMock()
             ctx.extract_info.return_value = {"title": "My Cool Video", "id": "abc"}
             dl_cls.return_value.__enter__.return_value = ctx
             assert fetch_video_title("https://youtu.be/abc") == "My Cool Video"
 
     def test_falls_back_to_id_when_no_title(self) -> None:
-        with patch("yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
+        with patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
             ctx = MagicMock()
             ctx.extract_info.return_value = {"id": "abc"}
             dl_cls.return_value.__enter__.return_value = ctx
@@ -71,7 +71,7 @@ class TestDownloadYoutubeAudio:
             wav.write_bytes(b"")
             return {"id": "abc123", "title": "My Video"}
 
-        with patch("yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
+        with patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
             ctx = MagicMock()
             ctx.extract_info.side_effect = fake_extract
             dl_cls.return_value.__enter__.return_value = ctx
@@ -83,7 +83,7 @@ class TestDownloadYoutubeAudio:
 
     def test_missing_output_file_raises(self, tmp_path: Path) -> None:
         out = tmp_path / "downloads"
-        with patch("yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
+        with patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL") as dl_cls:
             ctx = MagicMock()
             # Simulate yt-dlp reporting success but never creating the file
             ctx.extract_info.return_value = {"id": "missing", "title": "t"}

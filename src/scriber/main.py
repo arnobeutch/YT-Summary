@@ -1,4 +1,4 @@
-"""AI agent to summarize YouTube videos, local media, or existing transcripts."""
+"""Scriber entry point: transcribe and summarize YouTube videos, local media, or transcripts."""
 
 from __future__ import annotations
 
@@ -9,19 +9,20 @@ import sys
 
 import torch.cuda
 
-from yt_summary import handlers, parser
-from yt_summary.logger import initialize_logger, my_logger
-from yt_summary.settings import Settings
-from yt_summary.summarizers import MissingAPIKeyError, make_summarizer
+from scriber import handlers, parser
+from scriber.logger import initialize_logger, my_logger
+from scriber.settings import Settings
+from scriber.summarizers import MissingAPIKeyError, make_summarizer
 
 
 def _apply_cli_overrides(args: argparse.Namespace, base: Settings) -> Settings:
     """Return a new ``Settings`` with CLI-provided values overlaid on ``base``.
 
-    ``--with-openai`` is treated as a shortcut for ``--llm-provider openai``.
+    Summarize-only flags (``--llm-provider``, ``--llm-model``, ``--summary-mode``,
+    ``--with-openai``) are only present when the subcommand is ``summarize``.
     """
-    provider = args.llm_provider or base.llm_provider
-    if args.with_openai:
+    provider = getattr(args, "llm_provider", None) or base.llm_provider
+    if getattr(args, "with_openai", False):
         provider = "openai"
     return dataclasses.replace(
         base,
@@ -29,8 +30,8 @@ def _apply_cli_overrides(args: argparse.Namespace, base: Settings) -> Settings:
         downloads_dir=args.downloads_dir or base.downloads_dir,
         whisper_model_size=args.model_size or base.whisper_model_size,
         llm_provider=provider,
-        llm_model=args.llm_model or base.llm_model,
-        summary_mode=args.summary_mode or base.summary_mode,
+        llm_model=getattr(args, "llm_model", None) or base.llm_model,
+        summary_mode=getattr(args, "summary_mode", None) or base.summary_mode,
     )
 
 
@@ -70,7 +71,7 @@ def main() -> None:
 
     _gpu_warning()
 
-    will_summarize = args.summarize and not args.transcript_only
+    will_summarize = args.command == "summarize"
 
     # Preflight the LLM backend BEFORE the slow transcription pipeline so a
     # missing API key fails in seconds, not after a 10-minute whisper run.
@@ -111,8 +112,6 @@ def main() -> None:
         if will_summarize:
             my_logger.info("Generating summary...")
             handlers.summarize(transcript, per_args, settings)
-        elif args.transcript_only and args.summarize:
-            my_logger.info("--transcript-only set; skipping summary generation.")
 
 
 if __name__ == "__main__":

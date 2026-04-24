@@ -5,10 +5,10 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from yt_summary.handlers import handle_url
-from yt_summary.settings import Settings
-from yt_summary.transcription.youtube_audio import download_youtube_audio
-from yt_summary.transcription.youtube_captions import TranscriptUnavailableError
+from scriber.handlers import handle_url
+from scriber.settings import Settings
+from scriber.transcription.youtube_audio import download_youtube_audio
+from scriber.transcription.youtube_captions import TranscriptUnavailableError
 
 
 def _settings(tmp_path: Path) -> Settings:
@@ -34,7 +34,6 @@ def _args(**overrides: object) -> MagicMock:
         "input_path": "https://youtu.be/abc",
         "language": None,
         "diarize": False,
-        "summarize": False,
         "with_openai": False,
         "force": False,
         "model_size": None,
@@ -52,10 +51,10 @@ class TestDownloadCache:
         (out / "abc.wav").write_bytes(b"")
         with (
             patch(
-                "yt_summary.transcription.youtube_audio.fetch_video_title",
+                "scriber.transcription.youtube_audio.fetch_video_title",
                 return_value="Cached Title",
             ) as fetch,
-            patch("yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL") as ydl,
+            patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL") as ydl,
         ):
             audio_path, title = download_youtube_audio("https://youtu.be/abc", out)
         assert audio_path == out / "abc.wav"
@@ -73,14 +72,12 @@ class TestDownloadCache:
         ctx.__exit__.return_value = False
 
         def _extract_info(_url: str, *, download: bool = True) -> dict[str, object]:
-            _ = download
+            _ = _url, download
             cached.write_bytes(b"new")
             return {"id": "abc", "title": "Re-downloaded"}
 
         ctx.extract_info.side_effect = _extract_info
-        with patch(
-            "yt_summary.transcription.youtube_audio.yt_dlp.YoutubeDL", return_value=ctx
-        ) as ydl:
+        with patch("scriber.transcription.youtube_audio.yt_dlp.YoutubeDL", return_value=ctx) as ydl:
             audio_path, title = download_youtube_audio(
                 "https://youtu.be/abc",
                 out,
@@ -98,16 +95,16 @@ class TestHandleUrlCachedTranscript:
         # Pre-existing transcript file matching the title download will produce.
         (s.output_dir / "Vid transcript.txt").write_text("cached body", encoding="utf8")
         with (
-            patch("yt_summary.handlers.pya.extract_video_id", return_value="abc"),
+            patch("scriber.handlers.pya.extract_video_id", return_value="abc"),
             patch(
-                "yt_summary.handlers.pytt.get_youtube_transcript",
+                "scriber.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("lang_not_found", "x"),
             ),
             patch(
-                "yt_summary.handlers.pya.download_youtube_audio",
+                "scriber.handlers.pya.download_youtube_audio",
                 return_value=(s.downloads_dir / "abc.wav", "Vid"),
             ),
-            patch("yt_summary.handlers.plt.transcribe_audio_full") as transcribe,
+            patch("scriber.handlers.plt.transcribe_audio_full") as transcribe,
         ):
             t = handle_url(_args(), s)
         transcribe.assert_not_called()
@@ -118,17 +115,17 @@ class TestHandleUrlCachedTranscript:
         s.output_dir.mkdir(parents=True, exist_ok=True)
         (s.output_dir / "Vid transcript.txt").write_text("STALE", encoding="utf8")
         with (
-            patch("yt_summary.handlers.pya.extract_video_id", return_value="abc"),
+            patch("scriber.handlers.pya.extract_video_id", return_value="abc"),
             patch(
-                "yt_summary.handlers.pytt.get_youtube_transcript",
+                "scriber.handlers.pytt.get_youtube_transcript",
                 side_effect=TranscriptUnavailableError("lang_not_found", "x"),
             ),
             patch(
-                "yt_summary.handlers.pya.download_youtube_audio",
+                "scriber.handlers.pya.download_youtube_audio",
                 return_value=(s.downloads_dir / "abc.wav", "Vid"),
             ),
             patch(
-                "yt_summary.handlers.plt.transcribe_audio_full",
+                "scriber.handlers.plt.transcribe_audio_full",
                 return_value=("fresh body", "en", []),
             ) as transcribe,
         ):

@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 import openai
 import pytest
 
-from yt_summary.model import Transcript
-from yt_summary.settings import Settings
-from yt_summary.summarizers import MissingAPIKeyError, analyze_sentiment, make_summarizer
-from yt_summary.summarizers.openai_summarizer import OpenAISummarizer
-from yt_summary.summarizers.openrouter import OPENROUTER_BASE_URL, OpenRouterSummarizer
-from yt_summary.summarizers.rag import RagSummarizer
+from scriber.model import Transcript
+from scriber.settings import Settings
+from scriber.summarizers import MissingAPIKeyError, analyze_sentiment, make_summarizer
+from scriber.summarizers.openai_summarizer import OpenAISummarizer
+from scriber.summarizers.openrouter import OPENROUTER_BASE_URL, OpenRouterSummarizer
+from scriber.summarizers.rag import RagSummarizer
 
 
 def _settings(**overrides: object) -> Settings:
@@ -104,7 +104,7 @@ class TestOpenAISummarizer:
         s = _settings(output_dir=tmp_path / "out")
         summarizer = OpenAISummarizer(s)
         with patch(
-            "yt_summary.summarizers.openai_compatible.OpenAI", return_value=self._mock_client()
+            "scriber.summarizers.openai_compatible.OpenAI", return_value=self._mock_client()
         ):
             summarizer.summarize(_transcript(language="en", title="vid"), input_path="u")
         out = tmp_path / "out" / "vid.md"
@@ -115,7 +115,7 @@ class TestOpenAISummarizer:
         s = _settings(output_dir=tmp_path / "out", summary_mode="source")
         summarizer = OpenAISummarizer(s)
         client = self._mock_client(content="résumé")
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             summarizer.summarize(_transcript(language="fr", title="vidfr"), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         prompt = kwargs["messages"][1]["content"]
@@ -126,7 +126,7 @@ class TestOpenAISummarizer:
         s = _settings(output_dir=tmp_path / "out", summary_mode="meeting")
         summarizer = OpenAISummarizer(s)
         client = self._mock_client()
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             summarizer.summarize(_transcript(language="en"), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         prompt = kwargs["messages"][1]["content"]
@@ -137,9 +137,7 @@ class TestOpenAISummarizer:
         s = _settings(output_dir=tmp_path / "out")
         summarizer = OpenAISummarizer(s)
         with (
-            patch(
-                "yt_summary.summarizers.openai_compatible.OpenAI", return_value=self._mock_client()
-            ),
+            patch("scriber.summarizers.openai_compatible.OpenAI", return_value=self._mock_client()),
             pytest.raises(ValueError, match="language not supported"),
         ):
             summarizer.summarize(_transcript(language="de"), input_path="u")
@@ -149,7 +147,7 @@ class TestOpenAISummarizer:
         summarizer = OpenAISummarizer(s)
         client = MagicMock()
         client.chat.completions.create.side_effect = openai.OpenAIError("boom")
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             summarizer.summarize(_transcript(), input_path="u")
         assert not (tmp_path / "out" / "vid.md").exists()
 
@@ -157,7 +155,7 @@ class TestOpenAISummarizer:
         s = _settings(output_dir=tmp_path / "out")
         summarizer = OpenAISummarizer(s)
         with patch(
-            "yt_summary.summarizers.openai_compatible.OpenAI",
+            "scriber.summarizers.openai_compatible.OpenAI",
             return_value=self._mock_client(content=None),
         ):
             summarizer.summarize(_transcript(), input_path="u")
@@ -166,7 +164,7 @@ class TestOpenAISummarizer:
     def test_uses_settings_openai_model(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", openai_model="gpt-5")
         client = self._mock_client()
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             OpenAISummarizer(s).summarize(_transcript(), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         assert kwargs["model"] == "gpt-5"
@@ -178,7 +176,7 @@ class TestOpenAISummarizer:
             llm_model="gpt-5",
         )
         client = self._mock_client()
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             OpenAISummarizer(s).summarize(_transcript(), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         assert kwargs["model"] == "gpt-5"
@@ -195,7 +193,7 @@ class TestOpenRouterSummarizer:
         response = MagicMock()
         response.choices[0].message.content = "x"
         client.chat.completions.create.return_value = response
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client) as ctor:
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client) as ctor:
             OpenRouterSummarizer(s).summarize(_transcript(), input_path="u")
         _, kwargs = ctor.call_args
         assert kwargs["api_key"] == "or-test"
@@ -212,7 +210,7 @@ class TestOpenRouterSummarizer:
         response = MagicMock()
         response.choices[0].message.content = "x"
         client.chat.completions.create.return_value = response
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             OpenRouterSummarizer(s).summarize(_transcript(), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         assert "/" in kwargs["model"]  # provider/model format
@@ -228,7 +226,7 @@ class TestOpenRouterSummarizer:
         response = MagicMock()
         response.choices[0].message.content = "x"
         client.chat.completions.create.return_value = response
-        with patch("yt_summary.summarizers.openai_compatible.OpenAI", return_value=client):
+        with patch("scriber.summarizers.openai_compatible.OpenAI", return_value=client):
             OpenRouterSummarizer(s).summarize(_transcript(), input_path="u")
         _, kwargs = client.chat.completions.create.call_args
         assert kwargs["model"] == "anthropic/claude-4.7-sonnet"
@@ -238,7 +236,7 @@ class TestRagSummarizer:
     def test_writes_structured_markdown_with_sentiment(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", llm_provider="ollama")
         with patch(
-            "yt_summary.summarizers.rag.generate_summary",
+            "scriber.summarizers.rag.generate_summary",
             return_value="Sujet: test\nHashtags: #t\n",
         ):
             out_path = RagSummarizer(s).summarize(
@@ -259,7 +257,7 @@ class TestRagSummarizer:
 
     def test_english_suffix(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", llm_provider="ollama")
-        with patch("yt_summary.summarizers.rag.generate_summary", return_value="Sujet: x\n"):
+        with patch("scriber.summarizers.rag.generate_summary", return_value="Sujet: x\n"):
             out_path = RagSummarizer(s).summarize(
                 Transcript(
                     text="A: x",
@@ -278,7 +276,7 @@ class TestRagSummarizer:
             llm_provider="ollama",
             ollama_model="gemma4:e4b",
         )
-        with patch("yt_summary.summarizers.rag.generate_summary", return_value="x") as gen:
+        with patch("scriber.summarizers.rag.generate_summary", return_value="x") as gen:
             RagSummarizer(s).summarize(
                 Transcript(
                     text="x",
@@ -299,7 +297,7 @@ class TestRagSummarizer:
             ollama_model="mistral",
             llm_model="gemma4:e4b",
         )
-        with patch("yt_summary.summarizers.rag.generate_summary", return_value="x") as gen:
+        with patch("scriber.summarizers.rag.generate_summary", return_value="x") as gen:
             RagSummarizer(s).summarize(
                 Transcript(
                     text="x",
@@ -316,7 +314,7 @@ class TestRagSummarizer:
     def test_generate_summary_error_propagates(self, tmp_path: Path) -> None:
         s = _settings(output_dir=tmp_path / "out", llm_provider="ollama")
         with (
-            patch("yt_summary.summarizers.rag.generate_summary", side_effect=RuntimeError("boom")),
+            patch("scriber.summarizers.rag.generate_summary", side_effect=RuntimeError("boom")),
             pytest.raises(RuntimeError, match="boom"),
         ):
             RagSummarizer(s).summarize(

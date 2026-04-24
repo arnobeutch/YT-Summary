@@ -2,7 +2,8 @@
 
 Per-handler logic lives in test_handlers.py; per-helper logic in
 test_formatting.py. Here we just check that the dispatcher routes to the
-right handler and honors --summarize, --transcript-only, --dry-run.
+right handler and honors `summarize` vs `transcribe` subcommands and
+--dry-run.
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from yt_summary.main import main
+from scriber.main import main
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,10 +41,10 @@ _TEXT_CLASSIFICATION = {
 
 def _make_args(**overrides: object) -> MagicMock:
     defaults: dict[str, object] = {
+        "command": "transcribe",
         "input_path": [_URL],
         "language": None,
         "diarize": False,
-        "summarize": False,
         "with_openai": False,
         "debug": False,
         "model_size": None,
@@ -54,7 +55,6 @@ def _make_args(**overrides: object) -> MagicMock:
         "summary_mode": None,
         "force": False,
         "subtitles": False,
-        "transcript_only": False,
         "dry_run": False,
     }
     defaults.update(overrides)
@@ -81,14 +81,14 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
-            patch("yt_summary.main.handlers.handle_media") as h_media,
-            patch("yt_summary.main.handlers.handle_text") as h_text,
-            patch("yt_summary.main.handlers.write_transcript_file") as write,
-            patch("yt_summary.main.handlers.summarize") as summ,
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("scriber.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
+            patch("scriber.main.handlers.handle_media") as h_media,
+            patch("scriber.main.handlers.handle_text") as h_text,
+            patch("scriber.main.handlers.write_transcript_file") as write,
+            patch("scriber.main.handlers.summarize") as summ,
         ):
             parse.return_value = _make_args(input_path=[_URL])
             main()
@@ -105,16 +105,14 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_MEDIA_CLASSIFICATION),
-            patch("yt_summary.main.handlers.handle_url") as h_url,
-            patch(
-                "yt_summary.main.handlers.handle_media", return_value=_make_transcript()
-            ) as h_media,
-            patch("yt_summary.main.handlers.handle_text") as h_text,
-            patch("yt_summary.main.handlers.write_transcript_file"),
-            patch("yt_summary.main.handlers.summarize"),
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_MEDIA_CLASSIFICATION),
+            patch("scriber.main.handlers.handle_url") as h_url,
+            patch("scriber.main.handlers.handle_media", return_value=_make_transcript()) as h_media,
+            patch("scriber.main.handlers.handle_text") as h_text,
+            patch("scriber.main.handlers.write_transcript_file"),
+            patch("scriber.main.handlers.summarize"),
         ):
             parse.return_value = _make_args(input_path=["x.mp4"])
             main()
@@ -129,16 +127,14 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_TEXT_CLASSIFICATION),
-            patch("yt_summary.main.handlers.handle_url") as h_url,
-            patch("yt_summary.main.handlers.handle_media") as h_media,
-            patch(
-                "yt_summary.main.handlers.handle_text", return_value=_make_transcript()
-            ) as h_text,
-            patch("yt_summary.main.handlers.write_transcript_file"),
-            patch("yt_summary.main.handlers.summarize"),
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_TEXT_CLASSIFICATION),
+            patch("scriber.main.handlers.handle_url") as h_url,
+            patch("scriber.main.handlers.handle_media") as h_media,
+            patch("scriber.main.handlers.handle_text", return_value=_make_transcript()) as h_text,
+            patch("scriber.main.handlers.write_transcript_file"),
+            patch("scriber.main.handlers.summarize"),
         ):
             parse.return_value = _make_args(input_path=["x.txt"])
             main()
@@ -146,7 +142,7 @@ class TestDispatcher:
         h_url.assert_not_called()
         h_media.assert_not_called()
 
-    def test_summarize_called_when_flag_set(
+    def test_summarize_called_when_subcommand_is_summarize(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
@@ -154,40 +150,36 @@ class TestDispatcher:
         monkeypatch.chdir(tmp_path)
         # An API-key preflight runs before the pipeline; stub it out.
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("yt_summary.main.make_summarizer"),  # preflight ok
-            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()),
-            patch("yt_summary.main.handlers.write_transcript_file"),
-            patch("yt_summary.main.handlers.summarize") as summ,
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("scriber.main.make_summarizer"),  # preflight ok
+            patch("scriber.main.handlers.handle_url", return_value=_make_transcript()),
+            patch("scriber.main.handlers.write_transcript_file"),
+            patch("scriber.main.handlers.summarize") as summ,
         ):
-            parse.return_value = _make_args(input_path=[_URL], summarize=True)
+            parse.return_value = _make_args(input_path=[_URL], command="summarize")
             main()
         summ.assert_called_once()
 
-    def test_transcript_only_skips_summary(
+    def test_transcribe_subcommand_skips_summary(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("yt_summary.main.make_summarizer") as preflight,
-            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()),
-            patch("yt_summary.main.handlers.write_transcript_file"),
-            patch("yt_summary.main.handlers.summarize") as summ,
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("scriber.main.make_summarizer") as preflight,
+            patch("scriber.main.handlers.handle_url", return_value=_make_transcript()),
+            patch("scriber.main.handlers.write_transcript_file"),
+            patch("scriber.main.handlers.summarize") as summ,
         ):
-            parse.return_value = _make_args(
-                input_path=[_URL],
-                summarize=True,
-                transcript_only=True,
-            )
+            parse.return_value = _make_args(input_path=[_URL], command="transcribe")
             main()
-        # Both preflight and summarize must be skipped when --transcript-only.
+        # Both preflight and summarize must be skipped under the transcribe subcommand.
         preflight.assert_not_called()
         summ.assert_not_called()
 
@@ -198,11 +190,11 @@ class TestDispatcher:
     ) -> None:
         monkeypatch.chdir(tmp_path)
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("yt_summary.main.handlers.handle_url") as h_url,
-            patch("yt_summary.main.handlers.write_transcript_file") as write,
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("scriber.main.handlers.handle_url") as h_url,
+            patch("scriber.main.handlers.write_transcript_file") as write,
         ):
             parse.return_value = _make_args(input_path=[_URL], dry_run=True)
             main()
@@ -217,11 +209,11 @@ class TestDispatcher:
         monkeypatch.chdir(tmp_path)
         url2 = "https://y.com/watch?v=y"
         with (
-            patch("yt_summary.main.parser.parse_args") as parse,
-            patch("yt_summary.main.initialize_logger"),
-            patch("yt_summary.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
-            patch("yt_summary.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
-            patch("yt_summary.main.handlers.write_transcript_file"),
+            patch("scriber.main.parser.parse_args") as parse,
+            patch("scriber.main.initialize_logger"),
+            patch("scriber.main.parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("scriber.main.handlers.handle_url", return_value=_make_transcript()) as h_url,
+            patch("scriber.main.handlers.write_transcript_file"),
         ):
             parse.return_value = _make_args(input_path=[_URL, url2])
             main()

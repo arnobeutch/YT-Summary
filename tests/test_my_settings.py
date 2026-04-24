@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-import yt_summary.settings as my_settings
-from yt_summary.settings import Settings
+import scriber.settings as my_settings
+from scriber.settings import Settings
 
 
 class TestLoadDotenv:

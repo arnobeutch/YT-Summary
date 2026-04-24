@@ -2,8 +2,8 @@
 
 import re
 
-from yt_summary.constants import RAG_SECTION_TITLES
-from yt_summary.logger import my_logger
+from scriber.constants import RAG_SECTION_TITLES
+from scriber.logger import my_logger
 
 
 def extract_sections(summary: str, language: str) -> dict[str, str]:

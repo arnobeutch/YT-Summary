@@ -8,7 +8,7 @@ from typing import Any, cast
 
 import yt_dlp
 
-from yt_summary.logger import my_logger
+from scriber.logger import my_logger
 
 
 def extract_video_id(url: str) -> str:

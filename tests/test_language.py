@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from yt_summary.language import derive_summary_language, derive_whisper_summary_language
+from scriber.language import derive_summary_language, derive_whisper_summary_language
 
 
 class TestDeriveSummaryLanguage:

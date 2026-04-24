@@ -1,4 +1,4 @@
-"""Tests for my_parser."""
+"""Tests for scriber.parser."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from yt_summary.parser import classify_input, is_valid_url, parse_args
+from scriber.parser import classify_input, is_valid_url, parse_args
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -87,13 +87,31 @@ class TestClassifyInput:
 
 
 def _run_parser(argv: list[str], monkeypatch: pytest.MonkeyPatch) -> argparse.Namespace:
-    monkeypatch.setattr("sys.argv", ["main.py", *argv])
+    monkeypatch.setattr("sys.argv", ["scriber", *argv])
     return parse_args()
 
 
-class TestParseArgs:
+class TestSubcommands:
+    def test_missing_subcommand_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+
+    def test_unknown_subcommand_fails(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(["process", "https://y.com/watch?v=x"], monkeypatch)
+
+    def test_transcribe_command_recorded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x"], monkeypatch)
+        assert ns.command == "transcribe"
+
+    def test_summarize_command_recorded(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["summarize", "https://y.com/watch?v=x"], monkeypatch)
+        assert ns.command == "summarize"
+
+
+class TestTranscribeSubcommand:
     def test_url_input_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://youtube.com/watch?v=abc"], monkeypatch)
+        ns = _run_parser(["transcribe", "https://youtube.com/watch?v=abc"], monkeypatch)
         assert ns.input_path == ["https://youtube.com/watch?v=abc"]
 
     def test_multiple_inputs_accepted(
@@ -103,139 +121,78 @@ class TestParseArgs:
     ) -> None:
         f = tmp_path / "clip.mp4"
         f.write_text("")
-        ns = _run_parser(["https://youtube.com/watch?v=abc", str(f)], monkeypatch)
+        ns = _run_parser(
+            ["transcribe", "https://youtube.com/watch?v=abc", str(f)],
+            monkeypatch,
+        )
         assert len(ns.input_path) == 2
 
     def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
-            _run_parser(["not-a-url-nor-file"], monkeypatch)
+            _run_parser(["transcribe", "not-a-url-nor-file"], monkeypatch)
 
     def test_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x"], monkeypatch)
         assert ns.language is None  # autodetect
         assert ns.diarize is False
-        assert ns.summarize is False
-        assert ns.with_openai is False
         assert ns.debug is False
         assert ns.dry_run is False
+        assert ns.force is False
+        assert ns.subtitles is False
 
-    def test_language_fr(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--language", "fr"], monkeypatch)
-        assert ns.language == "fr"
-
-    def test_language_short_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "-l", "fr"], monkeypatch)
-        assert ns.language == "fr"
-
-    def test_debug_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "-d"], monkeypatch)
-        assert ns.debug is True
-
-    def test_all_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(
-            ["https://y.com/watch?v=x", "--diarize", "--summarize", "--with-openai"],
-            monkeypatch,
-        )
-        assert ns.diarize is True
-        assert ns.summarize is True
-        assert ns.with_openai is True
-
-    def test_with_openai_canonical_form(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--with-openai"], monkeypatch)
-        assert ns.with_openai is True
-
-    def test_with_openai_legacy_underscore_still_works(
+    def test_summarize_only_flags_rejected_under_transcribe(
         self,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--with_openai"], monkeypatch)
-        assert ns.with_openai is True
+        for flag in ("--with-openai", "--llm-provider", "--llm-model", "--summary-mode"):
+            with pytest.raises(SystemExit):
+                _run_parser(
+                    ["transcribe", "https://y.com/watch?v=x", flag, "openai"]
+                    if flag != "--with-openai"
+                    else ["transcribe", "https://y.com/watch?v=x", flag],
+                    monkeypatch,
+                )
 
-    def test_backend_flags_default_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # Backend/config flags default to None so the resolver at use-site can
-        # fall back to Settings (and thus env vars).
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.model_size is None
-        assert ns.llm_provider is None
-        assert ns.llm_model is None
-        assert ns.output_dir is None
-        assert ns.downloads_dir is None
-        assert ns.summary_mode is None
-
-    def test_summary_mode_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_language_fr(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(
-            ["https://y.com/watch?v=x", "--summary-mode", "meeting"],
+            ["transcribe", "https://y.com/watch?v=x", "--language", "fr"],
             monkeypatch,
         )
-        assert ns.summary_mode == "meeting"
+        assert ns.language == "fr"
 
-    def test_summary_mode_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        with pytest.raises(SystemExit):
-            _run_parser(["https://y.com/watch?v=x", "--summary-mode", "novel"], monkeypatch)
+    def test_language_short_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x", "-l", "fr"], monkeypatch)
+        assert ns.language == "fr"
 
-    def test_force_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.force is False
+    def test_debug_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x", "-d"], monkeypatch)
+        assert ns.debug is True
 
     def test_force_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--force"], monkeypatch)
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x", "--force"], monkeypatch)
         assert ns.force is True
 
-    def test_subtitles_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.subtitles is False
-
     def test_subtitles_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--subtitles"], monkeypatch)
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x", "--subtitles"], monkeypatch)
         assert ns.subtitles is True
 
-    def test_transcript_only_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.transcript_only is False
-
-    def test_transcript_only_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--transcript-only"], monkeypatch)
-        assert ns.transcript_only is True
-
-    def test_dry_run_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
-        assert ns.dry_run is False
-
     def test_dry_run_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(["https://y.com/watch?v=x", "--dry-run"], monkeypatch)
+        ns = _run_parser(["transcribe", "https://y.com/watch?v=x", "--dry-run"], monkeypatch)
         assert ns.dry_run is True
 
     def test_model_size_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(
-            ["https://y.com/watch?v=x", "--model-size", "medium"],
+            ["transcribe", "https://y.com/watch?v=x", "--model-size", "medium"],
             monkeypatch,
         )
         assert ns.model_size == "medium"
 
     def test_model_size_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with pytest.raises(SystemExit):
-            _run_parser(["https://y.com/watch?v=x", "--model-size", "huge"], monkeypatch)
-
-    def test_llm_provider_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(
-            ["https://y.com/watch?v=x", "--llm-provider", "openrouter"],
-            monkeypatch,
-        )
-        assert ns.llm_provider == "openrouter"
-
-    def test_llm_provider_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        with pytest.raises(SystemExit):
             _run_parser(
-                ["https://y.com/watch?v=x", "--llm-provider", "together"],
+                ["transcribe", "https://y.com/watch?v=x", "--model-size", "huge"],
                 monkeypatch,
             )
-
-    def test_llm_model_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        ns = _run_parser(
-            ["https://y.com/watch?v=x", "--llm-model", "anthropic/claude-4.7-sonnet"],
-            monkeypatch,
-        )
-        assert ns.llm_model == "anthropic/claude-4.7-sonnet"
 
     def test_output_dir_override(
         self,
@@ -244,7 +201,7 @@ class TestParseArgs:
     ) -> None:
         target = tmp_path / "out"
         ns = _run_parser(
-            ["https://y.com/watch?v=x", "--output-dir", str(target)],
+            ["transcribe", "https://y.com/watch?v=x", "--output-dir", str(target)],
             monkeypatch,
         )
         assert ns.output_dir == target
@@ -256,12 +213,88 @@ class TestParseArgs:
     ) -> None:
         target = tmp_path / "dl"
         ns = _run_parser(
-            ["https://y.com/watch?v=x", "--downloads-dir", str(target)],
+            ["transcribe", "https://y.com/watch?v=x", "--downloads-dir", str(target)],
             monkeypatch,
         )
         assert ns.downloads_dir == target
 
     def test_unsupported_language_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        # argparse rejects invalid choice with SystemExit(2)
         with pytest.raises(SystemExit):
-            _run_parser(["https://y.com/watch?v=x", "-l", "de"], monkeypatch)
+            _run_parser(["transcribe", "https://y.com/watch?v=x", "-l", "de"], monkeypatch)
+
+
+class TestSummarizeSubcommand:
+    def test_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["summarize", "https://y.com/watch?v=x"], monkeypatch)
+        assert ns.with_openai is False
+        assert ns.llm_provider is None
+        assert ns.llm_model is None
+        assert ns.summary_mode is None
+
+    def test_all_summarize_flags(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            [
+                "summarize",
+                "https://y.com/watch?v=x",
+                "--diarize",
+                "--with-openai",
+                "--summary-mode",
+                "meeting",
+            ],
+            monkeypatch,
+        )
+        assert ns.diarize is True
+        assert ns.with_openai is True
+        assert ns.summary_mode == "meeting"
+
+    def test_with_openai_canonical_form(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["summarize", "https://y.com/watch?v=x", "--with-openai"],
+            monkeypatch,
+        )
+        assert ns.with_openai is True
+
+    def test_with_openai_legacy_underscore_still_works(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        ns = _run_parser(
+            ["summarize", "https://y.com/watch?v=x", "--with_openai"],
+            monkeypatch,
+        )
+        assert ns.with_openai is True
+
+    def test_summary_mode_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["summarize", "https://y.com/watch?v=x", "--summary-mode", "meeting"],
+            monkeypatch,
+        )
+        assert ns.summary_mode == "meeting"
+
+    def test_summary_mode_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(
+                ["summarize", "https://y.com/watch?v=x", "--summary-mode", "novel"],
+                monkeypatch,
+            )
+
+    def test_llm_provider_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["summarize", "https://y.com/watch?v=x", "--llm-provider", "openrouter"],
+            monkeypatch,
+        )
+        assert ns.llm_provider == "openrouter"
+
+    def test_llm_provider_invalid_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(SystemExit):
+            _run_parser(
+                ["summarize", "https://y.com/watch?v=x", "--llm-provider", "together"],
+                monkeypatch,
+            )
+
+    def test_llm_model_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(
+            ["summarize", "https://y.com/watch?v=x", "--llm-model", "anthropic/claude-4.7-sonnet"],
+            monkeypatch,
+        )
+        assert ns.llm_model == "anthropic/claude-4.7-sonnet"

@@ -12,8 +12,8 @@ from unittest.mock import patch
 import pytest
 from pyannote.core import Segment
 
-import yt_summary.transcription.local as plt
-from yt_summary.transcription.local import (
+import scriber.transcription.local as plt
+from scriber.transcription.local import (
     _MODEL_CACHE,
     extract_audio,
     get_device,
@@ -26,11 +26,11 @@ if TYPE_CHECKING:
 
 class TestGetDevice:
     def test_cuda_when_available(self) -> None:
-        with patch("yt_summary.transcription.local.torch.cuda.is_available", return_value=True):
+        with patch("scriber.transcription.local.torch.cuda.is_available", return_value=True):
             assert get_device() == "cuda"
 
     def test_cpu_fallback(self) -> None:
-        with patch("yt_summary.transcription.local.torch.cuda.is_available", return_value=False):
+        with patch("scriber.transcription.local.torch.cuda.is_available", return_value=False):
             assert get_device() == "cpu"
 
 
@@ -97,7 +97,7 @@ class TestModelCache:
         _MODEL_CACHE.clear()
         fake_model = object()
         with patch(
-            "yt_summary.transcription.local.whisper.load_model", return_value=fake_model
+            "scriber.transcription.local.whisper.load_model", return_value=fake_model
         ) as load:
             m1 = plt._load_model("tiny", "cpu")
             m2 = plt._load_model("tiny", "cpu")
@@ -109,7 +109,7 @@ class TestModelCache:
         model_a = object()
         model_b = object()
         with patch(
-            "yt_summary.transcription.local.whisper.load_model",
+            "scriber.transcription.local.whisper.load_model",
             side_effect=[model_a, model_b],
         ) as load:
             ma = plt._load_model("tiny", "cpu")

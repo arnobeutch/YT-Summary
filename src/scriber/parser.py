@@ -1,4 +1,9 @@
-"""Command-line parser for this script."""
+"""Command-line parser.
+
+Two subcommands:
+- ``scriber transcribe <input>...``  — write a transcript (and optional subtitles).
+- ``scriber summarize <input>...``   — transcribe if needed, then summarize.
+"""
 
 import argparse
 from pathlib import Path
@@ -45,18 +50,14 @@ def classify_input(path: str) -> dict[str, bool]:
     }
 
 
-def parse_args() -> argparse.Namespace:
-    """Define then parse command-line arguments."""
-    parser = argparse.ArgumentParser(
-        description=("Summarize YouTube videos, local audio/video files, or existing transcripts."),
-        usage="yt-summary <url | path> [url | path ...] [options]",
-    )
-    parser.add_argument(
+def _add_shared_args(sub: argparse.ArgumentParser) -> None:
+    """Flags shared between transcribe and summarize (both run the transcription pipeline)."""
+    sub.add_argument(
         "input_path",
         nargs="+",
         help="YouTube URL(s) or path(s) to local media / text file(s)",
     )
-    parser.add_argument(
+    sub.add_argument(
         "-l",
         "--language",
         choices={"en", "fr"},
@@ -69,20 +70,74 @@ def parse_args() -> argparse.Namespace:
             "anything other than en/fr)."
         ),
     )
-    parser.add_argument(
+    sub.add_argument(
         "--diarize",
         action="store_true",
         default=False,
         help="Diarize the audio (identify speakers) in the transcript (default: False)",
     )
-    parser.add_argument(
-        "-s",
-        "--summarize",
+    sub.add_argument(
+        "--model-size",
+        dest="model_size",
+        choices={"tiny", "base", "small", "medium", "large"},
+        default=None,
+        help=(
+            "Whisper model size for local transcription. "
+            "Default: env WHISPER_MODEL_SIZE, or 'small'."
+        ),
+    )
+    sub.add_argument(
+        "--output-dir",
+        dest="output_dir",
+        type=Path,
+        default=None,
+        help="Where transcripts and summaries land. Default: env OUTPUT_DIR, or ./results.",
+    )
+    sub.add_argument(
+        "--downloads-dir",
+        dest="downloads_dir",
+        type=Path,
+        default=None,
+        help="Where downloaded YT audio is cached. Default: env DOWNLOADS_DIR, or ./downloads.",
+    )
+    sub.add_argument(
+        "--force",
         action="store_true",
         default=False,
-        help="Output a summary of the video transcript (default: False)",
+        help="Re-download audio and re-transcribe even if cached outputs exist.",
     )
-    parser.add_argument(
+    sub.add_argument(
+        "--subtitles",
+        action="store_true",
+        default=False,
+        help=(
+            "Also write .srt and .vtt subtitle files alongside the .txt "
+            "transcript (whisper transcription only, not for YT captions or "
+            "diarized output)."
+        ),
+    )
+    sub.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        default=False,
+        help=(
+            "Print what the pipeline would do (input type, model, output dir) "
+            "without downloading, transcribing, or summarizing."
+        ),
+    )
+    sub.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        default=False,
+        help="Debug mode: enable DEBUG-level logging (default: False)",
+    )
+
+
+def _add_summarize_args(sub: argparse.ArgumentParser) -> None:
+    """Flags that only apply to the summarize subcommand."""
+    sub.add_argument(
         "--with-openai",
         "--with_openai",  # legacy alias — underscored form kept for backward compat
         dest="with_openai",
@@ -93,17 +148,7 @@ def parse_args() -> argparse.Namespace:
             "Kept for backward compatibility — prefer --llm-provider."
         ),
     )
-    parser.add_argument(
-        "--model-size",
-        dest="model_size",
-        choices={"tiny", "base", "small", "medium", "large"},
-        default=None,
-        help=(
-            "Whisper model size for local transcription. "
-            "Default: env WHISPER_MODEL_SIZE, or 'small'."
-        ),
-    )
-    parser.add_argument(
+    sub.add_argument(
         "--llm-provider",
         dest="llm_provider",
         choices={"openai", "openrouter", "ollama"},
@@ -114,7 +159,7 @@ def parse_args() -> argparse.Namespace:
             "Overrides --with-openai if both are given."
         ),
     )
-    parser.add_argument(
+    sub.add_argument(
         "--llm-model",
         dest="llm_model",
         default=None,
@@ -124,47 +169,7 @@ def parse_args() -> argparse.Namespace:
             "Default: env LLM_MODEL, or the provider's default."
         ),
     )
-    parser.add_argument(
-        "--output-dir",
-        dest="output_dir",
-        type=Path,
-        default=None,
-        help="Where transcripts and summaries land. Default: env OUTPUT_DIR, or ./results.",
-    )
-    parser.add_argument(
-        "--downloads-dir",
-        dest="downloads_dir",
-        type=Path,
-        default=None,
-        help="Where downloaded YT audio is cached. Default: env DOWNLOADS_DIR, or ./downloads.",
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        default=False,
-        help="Re-download audio and re-transcribe even if cached outputs exist.",
-    )
-    parser.add_argument(
-        "--subtitles",
-        action="store_true",
-        default=False,
-        help=(
-            "Also write .srt and .vtt subtitle files alongside the .txt "
-            "transcript (whisper transcription only, not for YT captions or "
-            "diarized output)."
-        ),
-    )
-    parser.add_argument(
-        "--transcript-only",
-        dest="transcript_only",
-        action="store_true",
-        default=False,
-        help=(
-            "Stop after writing the transcript (and subtitles, if --subtitles); "
-            "skip summarization. Implies --summarize is ignored."
-        ),
-    )
-    parser.add_argument(
+    sub.add_argument(
         "--summary-mode",
         dest="summary_mode",
         choices={"meeting", "source", "auto"},
@@ -175,23 +180,36 @@ def parse_args() -> argparse.Namespace:
             "or auto (default — heuristic). Default: env SUMMARY_MODE, or 'auto'."
         ),
     )
-    parser.add_argument(
-        "--dry-run",
-        dest="dry_run",
-        action="store_true",
-        default=False,
-        help=(
-            "Print what the pipeline would do (input type, model, output dir) "
-            "without downloading, transcribing, or summarizing."
+
+
+def parse_args() -> argparse.Namespace:
+    """Define then parse command-line arguments."""
+    parser = argparse.ArgumentParser(
+        prog="scriber",
+        description=(
+            "Transcribe and/or summarize YouTube videos, local audio/video files, "
+            "or existing text transcripts."
         ),
     )
-    parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        default=False,
-        help="Debug mode: enable DEBUG-level logging (default: False)",
+    sub = parser.add_subparsers(dest="command", required=True, metavar="{transcribe,summarize}")
+
+    transcribe = sub.add_parser(
+        "transcribe",
+        help="Produce a transcript (and optional subtitles). No summarization.",
+        description="Produce a transcript from a URL, local media file, or text file.",
     )
+    _add_shared_args(transcribe)
+
+    summarize = sub.add_parser(
+        "summarize",
+        help="Transcribe (if needed) then summarize via the configured LLM backend.",
+        description=(
+            "Transcribe the input if it's a URL or media file, then run the "
+            "configured summarizer over the transcript."
+        ),
+    )
+    _add_shared_args(summarize)
+    _add_summarize_args(summarize)
 
     args = parser.parse_args()
 

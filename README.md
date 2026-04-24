@@ -1,6 +1,6 @@
-# YT-Summary
+# scriber
 
-Summarize YouTube videos, local audio/video files, or existing text transcripts.
+Transcribe and summarize YouTube videos, local audio/video files, or existing text transcripts.
 
 ## Features
 
@@ -13,38 +13,47 @@ Summarize YouTube videos, local audio/video files, or existing text transcripts.
 
 ## Usage
 
+Two subcommands:
+
 ```bash
-uv run yt-summary <url | path> [url | path ...] [options]
+uv run scriber transcribe <url | path> [url | path ...] [options]  # transcript only
+uv run scriber summarize  <url | path> [url | path ...] [options]  # transcribe + summarize
 ```
 
 Multiple inputs are processed sequentially in one invocation:
 
 ```bash
-uv run yt-summary https://www.youtube.com/watch?v=VIDEO_ID --summarize --with-openai
-uv run yt-summary ./my_meeting.mp4 --diarize --summarize
-uv run yt-summary ./existing_transcript.txt --summarize
-uv run yt-summary https://youtu.be/X https://youtu.be/Y ./local.mp4  # batch
+uv run scriber summarize  https://www.youtube.com/watch?v=VIDEO_ID --with-openai
+uv run scriber summarize  ./my_meeting.mp4 --diarize
+uv run scriber summarize  ./existing_transcript.txt
+uv run scriber transcribe ./my_meeting.mp4 --diarize --subtitles
+uv run scriber summarize  https://youtu.be/X https://youtu.be/Y ./local.mp4   # batch
 ```
 
 ### Options
+
+Flags shared by `transcribe` and `summarize`:
 
 | Flag | Description |
 | --- | --- |
 | `-l`, `--language` | `en` or `fr`. Default: autodetect. Used as a *hint* for caption-track selection and to force whisper's transcription language. The summary always tracks the source's language (English fallback for anything other than en/fr). |
 | `--diarize` | Identify speakers when transcribing local media (default: False). |
-| `-s`, `--summarize` | Produce a summary (default: False). |
-| `--with-openai` | Shortcut for `--llm-provider openai` (default: False). `--with_openai` still works as a legacy alias. |
 | `--model-size` | Whisper model: `tiny`, `base`, `small`, `medium`, `large`. Default from `WHISPER_MODEL_SIZE` env or `small`. |
-| `--llm-provider` | `openai`, `openrouter`, `ollama`. Default from `LLM_PROVIDER` env or `openai`. |
-| `--llm-model` | Model name for the chosen provider. Default from `LLM_MODEL` env or per-provider default. |
 | `--output-dir` | Where outputs land. Default from `OUTPUT_DIR` env or `./results`. |
 | `--downloads-dir` | Where downloaded YT audio is cached. Default from `DOWNLOADS_DIR` env or `./downloads`. |
-| `--summary-mode` | `meeting` (multi-speaker discussion), `source` (lecture / article / commentary — tags facts vs opinion vs speculation), or `auto` (heuristic). Default from `SUMMARY_MODE` env or `auto`. |
 | `--force` | Re-download audio and re-transcribe even when a cached `.wav` or transcript already exists. |
 | `--subtitles` | Also write `.srt` and `.vtt` subtitle files alongside the `.txt` transcript (whisper transcription only — YT captions and diarized output don't carry per-cue timestamps). |
-| `--transcript-only` | Stop after writing transcript (and subtitles); skip summarization. |
 | `--dry-run` | Print what the pipeline would do (input type, model, output dir) without doing any work. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
+
+Additional flags for `summarize` only:
+
+| Flag | Description |
+| --- | --- |
+| `--with-openai` | Shortcut for `--llm-provider openai` (default: False). `--with_openai` still works as a legacy alias. |
+| `--llm-provider` | `openai`, `openrouter`, `ollama`. Default from `LLM_PROVIDER` env or `openai`. |
+| `--llm-model` | Model name for the chosen provider. Default from `LLM_MODEL` env or per-provider default. |
+| `--summary-mode` | `meeting` (multi-speaker discussion), `source` (lecture / article / commentary — tags facts vs opinion vs speculation), or `auto` (heuristic). Default from `SUMMARY_MODE` env or `auto`. |
 
 ### Caching
 
@@ -106,15 +115,15 @@ Runtime settings are loaded by `Settings.from_env()` (reads `.env` + `os.environ
 
 ## Logging
 
-Configured via `src/yt_summary/logger_config.yaml`. Handlers:
+Configured via `src/scriber/logger_config.yaml`. Handlers:
 
 | Handler | Stream | Level |
 | --- | --- | --- |
 | stdout | stdout | INFO/DEBUG (non-errors) |
 | stderr | stderr | WARNING+ |
-| file | `logs/yt-summary.log` | DEBUG+ (rotating) |
+| file | `logs/scriber.log` | DEBUG+ (rotating) |
 
-Uncomment `- json_file` under `root.handlers` in `src/yt_summary/logger_config.yaml` to also emit structured JSON to `logs/yt-summary.jsonl`. Uncaught exceptions are routed through the logger via `install_excepthook()`.
+Uncomment `- json_file` under `root.handlers` in `src/scriber/logger_config.yaml` to also emit structured JSON to `logs/scriber.jsonl`. Uncaught exceptions are routed through the logger via `install_excepthook()`.
 
 ## Dev workflow
 

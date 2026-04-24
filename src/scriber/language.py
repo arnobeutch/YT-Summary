@@ -1,4 +1,4 @@
-"""Language-selection helpers for the YT-Summary pipeline.
+"""Language-selection helpers for the scriber pipeline.
 
 The summary language tracks the source's language (including titles); the
 user-supplied ``--language`` is a *preference hint*, not a hard override.
