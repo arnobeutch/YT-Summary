@@ -87,7 +87,7 @@ For a pre-existing text file (`.txt`, `.srt`, `.vtt`):
 
 ## Configuration
 
-Runtime settings live in `my_settings.py` (`Settings.from_env()` reads `.env` + `os.environ`; shell env wins over `.env`). Copy `.env.example` to `.env` and adjust. `.env` is gitignored.
+Runtime settings are loaded by `Settings.from_env()` (reads `.env` + `os.environ`; shell env wins over `.env`). Copy `.env.example` to `.env` and adjust. `.env` is gitignored.
 
 | Env var | Default | Purpose |
 | --- | --- | --- |
@@ -114,7 +114,7 @@ Configured via `logger_config.yaml`. Handlers:
 | stderr | stderr | WARNING+ |
 | file | `logs/yt-summary.log` | DEBUG+ (rotating) |
 
-Uncomment `- json_file` under `root.handlers` in `logger_config.yaml` to also emit structured JSON to `logs/yt-summary.jsonl`. Uncaught exceptions are routed through the logger via `install_excepthook()`.
+Uncomment `- json_file` under `root.handlers` in `src/yt_summary/logger_config.yaml` to also emit structured JSON to `logs/yt-summary.jsonl`. Uncaught exceptions are routed through the logger via `install_excepthook()`.
 
 ## Dev workflow
 
