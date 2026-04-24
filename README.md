@@ -106,7 +106,7 @@ Runtime settings are loaded by `Settings.from_env()` (reads `.env` + `os.environ
 
 ## Logging
 
-Configured via `logger_config.yaml`. Handlers:
+Configured via `src/yt_summary/logger_config.yaml`. Handlers:
 
 | Handler | Stream | Level |
 | --- | --- | --- |

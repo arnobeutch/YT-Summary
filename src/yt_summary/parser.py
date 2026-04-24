@@ -49,7 +49,7 @@ def parse_args() -> argparse.Namespace:
     """Define then parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description=("Summarize YouTube videos, local audio/video files, or existing transcripts."),
-        usage="uv run main.py <url | path> [url | path ...] [options]",
+        usage="yt-summary <url | path> [url | path ...] [options]",
     )
     parser.add_argument(
         "input_path",

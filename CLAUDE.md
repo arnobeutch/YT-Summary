@@ -48,7 +48,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 
 ## Known state
 
-- **App modules + tests are ruff-ALL + pyright-strict clean.** `just all` runs green (268 tests, 2 deselected integration). Boundary with untyped ML deps (`whisper`, `pyannote`, `torchaudio`, `ffmpeg`, `yt-dlp`, `langchain`, `chromadb`) is handled via file-level `# pyright: reportUnknown... = false` headers in `transcription/local.py` and `transcription/youtube_audio.py`, and explicit `cast(Any, ...)` at call sites elsewhere. Apply `.claude/rules/python_strict.md` patterns when extending.
+- **App modules + tests are ruff-ALL + pyright-strict clean.** `just all` runs green (268 tests, 2 deselected integration). Boundary with untyped ML deps (`whisper`, `pyannote`, `torchaudio`, `ffmpeg`, `yt-dlp`, `langchain`, `chromadb`) is handled via file-level `# pyright: reportUnknown... = false` headers in `src/yt_summary/transcription/local.py` and `src/yt_summary/transcription/youtube_audio.py`, and explicit `cast(Any, ...)` at call sites elsewhere. Apply `.claude/rules/python_strict.md` patterns when extending.
 - `results/`, `downloads/`, and `chroma_db/` are runtime outputs (gitignored).
 - `.env` holds `OPENAI_API_KEY`, optionally `HUGGINGFACE_TOKEN` (for diarization), and any `LOG_LEVEL` override.
 - Improvement plan lives at `/home/mprz/.claude/plans/ok-now-that-we-inherited-pascal.md`. In-flight work is tracked there; `TODO.md` is the grooming backlog.
