@@ -12,7 +12,9 @@ from unittest.mock import patch
 import pytest
 from pyannote.core import Segment
 
+import prepare_local_transcript as plt
 from prepare_local_transcript import (
+    _MODEL_CACHE,
     extract_audio,
     get_device,
     group_speaker_segments,
@@ -88,3 +90,28 @@ class TestExtractAudio:
     def test_missing_file_raises(self, tmp_path: Path) -> None:
         with pytest.raises(FileNotFoundError, match="File not found"):
             extract_audio(str(tmp_path / "nope.mp4"))
+
+
+class TestModelCache:
+    def test_model_loaded_once_on_repeated_calls(self) -> None:
+        _MODEL_CACHE.clear()
+        fake_model = object()
+        with patch("prepare_local_transcript.whisper.load_model", return_value=fake_model) as load:
+            m1 = plt._load_model("tiny", "cpu")
+            m2 = plt._load_model("tiny", "cpu")
+        load.assert_called_once_with("tiny", device="cpu")
+        assert m1 is m2 is fake_model
+
+    def test_different_keys_load_separate_models(self) -> None:
+        _MODEL_CACHE.clear()
+        model_a = object()
+        model_b = object()
+        with patch(
+            "prepare_local_transcript.whisper.load_model",
+            side_effect=[model_a, model_b],
+        ) as load:
+            ma = plt._load_model("tiny", "cpu")
+            mb = plt._load_model("small", "cpu")
+        assert load.call_count == 2
+        assert ma is model_a
+        assert mb is model_b

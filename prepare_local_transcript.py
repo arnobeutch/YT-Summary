@@ -20,6 +20,10 @@ from tqdm import tqdm
 
 from my_logger import my_logger
 
+MIN_SEGMENT_DURATION: float = 1.5  # seconds; skip whisper output shorter than this
+_MAX_SPEAKER_GAP: float = 1.0  # seconds; merge consecutive same-speaker segments within this gap
+_MODEL_CACHE: dict[tuple[str, str], whisper.Whisper] = {}
+
 
 class TqdmProgressBar:
     """Replacement for whisper.utils.ProgressBar that uses tqdm."""
@@ -76,26 +80,12 @@ def detect_language(audio_file: str, model: whisper.Whisper, device: str) -> str
     return max(probs_dict, key=lambda k: probs_dict[k])
 
 
-def transcribe_audio(
-    audio_file: str,
-    model_size: str = "base",
-    language: str | None = None,
-) -> tuple[str, str]:
-    """Transcribe audio using Whisper.
-
-    Args:
-        audio_file: Path to a 16kHz mono wav (or anything whisper accepts).
-        model_size: ``tiny`` / ``base`` / ``small`` / ``medium`` / ``large``.
-        language: Force whisper to this language (e.g. ``"fr"``). When
-            ``None``, whisper auto-detects.
-
-    Returns:
-        ``(text, language_used)`` where ``language_used`` is the forced
-        language when ``language`` was set, else the detected one.
-
-    """
-    text, lang, _ = transcribe_audio_full(audio_file, model_size=model_size, language=language)
-    return text, lang
+def _load_model(model_size: str, device: str) -> whisper.Whisper:
+    """Return a cached Whisper model, loading it on first use."""
+    key = (model_size, device)
+    if key not in _MODEL_CACHE:
+        _MODEL_CACHE[key] = whisper.load_model(model_size, device=device)
+    return _MODEL_CACHE[key]
 
 
 def transcribe_audio_full(
@@ -113,7 +103,7 @@ def transcribe_audio_full(
     device = get_device()
     my_logger.info(f"\tUsing device: {device}")
     patch_whisper_progress_bar()
-    model = whisper.load_model(model_size, device=device)
+    model = _load_model(model_size, device)
 
     if language is None:
         used_lang = detect_language(audio_file, model, device)
@@ -129,25 +119,6 @@ def transcribe_audio_full(
     )
     segments = cast(list[dict[str, Any]], result.get("segments", []))
     return cast(str, result["text"]), used_lang, segments
-
-
-def transcribe_video_file(
-    video_file: str,
-    model_size: str = "base",
-    language: str | None = None,
-) -> tuple[str, str]:
-    """Full pipeline: Extract audio from video, transcribe it, return text."""
-    my_logger.info(f"Processing: {video_file}")
-    audio_path = extract_audio(video_file)
-    try:
-        transcription, used_lang = transcribe_audio(
-            audio_path,
-            model_size=model_size,
-            language=language,
-        )
-    finally:
-        Path(audio_path).unlink()  # Cleanup temp audio file
-    return transcription, used_lang
 
 
 def diarize_speakers(audio_file: str) -> list[tuple[str, Segment]]:
@@ -260,7 +231,7 @@ def transcribe_audio_with_diarization(
     device = get_device()
     my_logger.info(f"\tUsing device: {device}")
     patch_whisper_progress_bar()
-    model = whisper.load_model(model_size, device=device)
+    model = _load_model(model_size, device)
 
     if language is None:
         used_lang = detect_language(audio_file, model, device)
@@ -281,9 +252,8 @@ def transcribe_audio_with_diarization(
     ]
 
     # Group segments from the same speaker
-    grouped_segments = group_speaker_segments(filtered_segments, max_gap=1.0)
+    grouped_segments = group_speaker_segments(filtered_segments, max_gap=_MAX_SPEAKER_GAP)
     full_text: list[str] = []
-    MIN_SEGMENT_DURATION = 1.5  # seconds  # noqa: N806
     for speaker, segment in grouped_segments:
         # Skip segments that are too short (silence or noise)
         if segment.end - segment.start < MIN_SEGMENT_DURATION:

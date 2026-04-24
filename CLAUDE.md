@@ -30,7 +30,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 | `my_settings.py` | Frozen `Settings` dataclass + stdlib `.env` loader (replaces the old `python-dotenv` dep). |
 | `prepare_yt_transcript.py` | yt-dlp-backed YouTube caption fetch. Picks manual > auto across `["fr", "en"]`. Raises `TranscriptUnavailableError` on failure. |
 | `prepare_yt_audio.py` | yt-dlp-based audio download + video-id extraction + title metadata (used for the captionless-video fallback path). |
-| `prepare_local_transcript.py` | ffmpeg → whisper transcription, optional pyannote diarization. |
+| `prepare_local_transcript.py` | ffmpeg → whisper transcription, optional pyannote diarization. Module-level `_MODEL_CACHE` avoids reloading whisper across calls. `transcribe_audio_full` is the primary entry point (returns text + lang + segments). Module constants: `MIN_SEGMENT_DURATION`, `_MAX_SPEAKER_GAP`. |
 | `preprocess_transcript.py` | Cleanup + speaker-name heuristics. |
 | `summarize_transcript.py` | OpenAI and RAG (langchain + Ollama + ChromaDB) summarizers. |
 | `q_and_a_engine.py` | RAG chain plumbing (langchain + Ollama + ChromaDB). |

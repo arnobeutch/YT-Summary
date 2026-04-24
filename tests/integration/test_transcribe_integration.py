@@ -25,16 +25,17 @@ pytestmark = pytest.mark.integration
 _FIXTURE = Path(__file__).parent / "data" / "hello.wav"
 
 
-def test_transcribe_audio_tiny_model() -> None:
+def test_transcribe_audio_full_tiny_model() -> None:
     if not _FIXTURE.exists():
         pytest.skip(f"Integration fixture missing: {_FIXTURE}")
 
-    from prepare_local_transcript import transcribe_audio
+    from prepare_local_transcript import transcribe_audio_full
 
-    text, language = transcribe_audio(str(_FIXTURE), model_size="tiny")
+    text, language, segments = transcribe_audio_full(str(_FIXTURE), model_size="tiny")
     assert isinstance(text, str)
     assert isinstance(language, str)
     assert len(language) >= 2
+    assert isinstance(segments, list)
 
 
 def test_extract_then_transcribe(tmp_path: Path) -> None:
@@ -42,9 +43,13 @@ def test_extract_then_transcribe(tmp_path: Path) -> None:
     if not _FIXTURE.exists():
         pytest.skip(f"Integration fixture missing: {_FIXTURE}")
 
-    from prepare_local_transcript import transcribe_video_file
+    from prepare_local_transcript import extract_audio, transcribe_audio_full
 
-    text, language = transcribe_video_file(str(_FIXTURE), model_size="tiny")
+    audio_path = extract_audio(str(_FIXTURE))
+    try:
+        text, language, _segments = transcribe_audio_full(audio_path, model_size="tiny")
+    finally:
+        Path(audio_path).unlink()
     _ = tmp_path
     assert isinstance(text, str)
     assert isinstance(language, str)
