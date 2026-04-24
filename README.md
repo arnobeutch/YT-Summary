@@ -4,7 +4,7 @@ Summarize YouTube videos, local audio/video files, or existing text transcripts.
 
 ## Features
 
-- `youtube_transcript_api` to fetch YouTube captions (en / fr).
+- `yt-dlp` for both YouTube captions (en / fr; manual preferred over auto) and audio download for the captionless-video fallback.
 - `whisper` transcription for local media (`ffmpeg-python` for audio extraction).
 - Optional speaker diarization via `pyannote-audio`.
 - `textblob` sentiment/polarity.

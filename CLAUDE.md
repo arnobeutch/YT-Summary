@@ -22,7 +22,7 @@ CLI tool to summarize YouTube videos, local audio/video files, or pre-existing t
 | `logger_config.yaml` | dictConfig YAML. Handlers: stdout (non-errors), stderr (WARNING+), rotating `logs/yt-summary.log`. |
 | `my_constants.py` | Prompts (`OPENAI_PROMPT_EN/FR`, `RAG_FRENCH/ENGLISH_PROMPT`, `RAG_SECTION_TITLES`) + polarity thresholds. |
 | `my_settings.py` | Frozen `Settings` dataclass + stdlib `.env` loader (replaces the old `python-dotenv` dep). |
-| `prepare_yt_transcript.py` | YouTube Transcript API wrapper. |
+| `prepare_yt_transcript.py` | yt-dlp-backed YouTube caption fetch. Picks manual > auto across `["fr", "en"]`. Raises `TranscriptUnavailableError` on failure. |
 | `prepare_yt_audio.py` | yt-dlp-based audio download + video-id extraction + title metadata (used for the captionless-video fallback path). |
 | `prepare_local_transcript.py` | ffmpeg → whisper transcription, optional pyannote diarization. |
 | `preprocess_transcript.py` | Cleanup + speaker-name heuristics. |
