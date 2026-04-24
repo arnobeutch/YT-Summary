@@ -1,8 +1,8 @@
 """Tests for main.main — orchestration only.
 
 Per-handler logic lives in test_handlers.py; per-helper logic in
-test_formatting.py. Here we just check that the dispatcher routes the
-right `args.is_*` flag to the right handler and honors `--summarize`.
+test_formatting.py. Here we just check that the dispatcher routes to the
+right handler and honors --summarize, --transcript-only, --dry-run.
 """
 
 from __future__ import annotations
@@ -17,19 +17,35 @@ if TYPE_CHECKING:
 
     import pytest
 
+_URL = "https://y.com/watch?v=x"
+_URL_CLASSIFICATION = {
+    "is_url": True,
+    "is_file": False,
+    "is_media_file": False,
+    "is_text_file": False,
+}
+_MEDIA_CLASSIFICATION = {
+    "is_url": False,
+    "is_file": True,
+    "is_media_file": True,
+    "is_text_file": False,
+}
+_TEXT_CLASSIFICATION = {
+    "is_url": False,
+    "is_file": True,
+    "is_media_file": False,
+    "is_text_file": True,
+}
+
 
 def _make_args(**overrides: object) -> MagicMock:
     defaults: dict[str, object] = {
-        "input_path": "",
+        "input_path": [_URL],
         "language": None,
         "diarize": False,
         "summarize": False,
         "with_openai": False,
         "debug": False,
-        "is_url": False,
-        "is_file": False,
-        "is_media_file": False,
-        "is_text_file": False,
         "model_size": None,
         "llm_provider": None,
         "llm_model": None,
@@ -39,6 +55,7 @@ def _make_args(**overrides: object) -> MagicMock:
         "force": False,
         "subtitles": False,
         "transcript_only": False,
+        "dry_run": False,
     }
     defaults.update(overrides)
     return MagicMock(**defaults)
@@ -66,13 +83,14 @@ class TestDispatcher:
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
             patch("main.handlers.handle_url", return_value=_make_transcript()) as h_url,
             patch("main.handlers.handle_media") as h_media,
             patch("main.handlers.handle_text") as h_text,
             patch("main.handlers.write_transcript_file") as write,
             patch("main.handlers.summarize") as summ,
         ):
-            parse.return_value = _make_args(input_path="https://y.com/watch?v=x", is_url=True)
+            parse.return_value = _make_args(input_path=[_URL])
             main()
         h_url.assert_called_once()
         h_media.assert_not_called()
@@ -89,17 +107,14 @@ class TestDispatcher:
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_MEDIA_CLASSIFICATION),
             patch("main.handlers.handle_url") as h_url,
             patch("main.handlers.handle_media", return_value=_make_transcript()) as h_media,
             patch("main.handlers.handle_text") as h_text,
             patch("main.handlers.write_transcript_file"),
             patch("main.handlers.summarize"),
         ):
-            parse.return_value = _make_args(
-                input_path="x.mp4",
-                is_file=True,
-                is_media_file=True,
-            )
+            parse.return_value = _make_args(input_path=["x.mp4"])
             main()
         h_media.assert_called_once()
         h_url.assert_not_called()
@@ -114,17 +129,14 @@ class TestDispatcher:
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_TEXT_CLASSIFICATION),
             patch("main.handlers.handle_url") as h_url,
             patch("main.handlers.handle_media") as h_media,
             patch("main.handlers.handle_text", return_value=_make_transcript()) as h_text,
             patch("main.handlers.write_transcript_file"),
             patch("main.handlers.summarize"),
         ):
-            parse.return_value = _make_args(
-                input_path="x.txt",
-                is_file=True,
-                is_text_file=True,
-            )
+            parse.return_value = _make_args(input_path=["x.txt"])
             main()
         h_text.assert_called_once()
         h_url.assert_not_called()
@@ -140,16 +152,13 @@ class TestDispatcher:
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
             patch("main.make_summarizer"),  # preflight ok
             patch("main.handlers.handle_url", return_value=_make_transcript()),
             patch("main.handlers.write_transcript_file"),
             patch("main.handlers.summarize") as summ,
         ):
-            parse.return_value = _make_args(
-                input_path="https://y.com/watch?v=x",
-                is_url=True,
-                summarize=True,
-            )
+            parse.return_value = _make_args(input_path=[_URL], summarize=True)
             main()
         summ.assert_called_once()
 
@@ -162,14 +171,14 @@ class TestDispatcher:
         with (
             patch("main.my_parser.parse_args") as parse,
             patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
             patch("main.make_summarizer") as preflight,
             patch("main.handlers.handle_url", return_value=_make_transcript()),
             patch("main.handlers.write_transcript_file"),
             patch("main.handlers.summarize") as summ,
         ):
             parse.return_value = _make_args(
-                input_path="https://y.com/watch?v=x",
-                is_url=True,
+                input_path=[_URL],
                 summarize=True,
                 transcript_only=True,
             )
@@ -177,3 +186,39 @@ class TestDispatcher:
         # Both preflight and summarize must be skipped when --transcript-only.
         preflight.assert_not_called()
         summ.assert_not_called()
+
+    def test_dry_run_skips_all_work(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        with (
+            patch("main.my_parser.parse_args") as parse,
+            patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("main.handlers.handle_url") as h_url,
+            patch("main.handlers.write_transcript_file") as write,
+        ):
+            parse.return_value = _make_args(input_path=[_URL], dry_run=True)
+            main()
+        h_url.assert_not_called()
+        write.assert_not_called()
+
+    def test_batch_mode_processes_multiple_inputs(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        url2 = "https://y.com/watch?v=y"
+        with (
+            patch("main.my_parser.parse_args") as parse,
+            patch("main.initialize_logger"),
+            patch("main.my_parser.classify_input", return_value=_URL_CLASSIFICATION),
+            patch("main.handlers.handle_url", return_value=_make_transcript()) as h_url,
+            patch("main.handlers.write_transcript_file"),
+        ):
+            parse.return_value = _make_args(input_path=[_URL, url2])
+            main()
+        assert h_url.call_count == 2

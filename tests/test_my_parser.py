@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from my_parser import is_valid_url, parse_args
+from my_parser import classify_input, is_valid_url, parse_args
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -36,66 +36,79 @@ class TestIsValidUrl:
         assert not is_valid_url("./my_video.mp4")
 
 
+class TestClassifyInput:
+    def test_url_is_classified_as_url(self) -> None:
+        c = classify_input("https://youtube.com/watch?v=abc")
+        assert c["is_url"] is True
+        assert c["is_file"] is False
+        assert c["is_media_file"] is False
+        assert c["is_text_file"] is False
+
+    def test_media_file_mp4(self, tmp_path: Path) -> None:
+        f = tmp_path / "clip.mp4"
+        f.write_text("")
+        c = classify_input(str(f))
+        assert c["is_file"] is True
+        assert c["is_media_file"] is True
+        assert c["is_text_file"] is False
+        assert c["is_url"] is False
+
+    def test_media_file_uppercase_ext(self, tmp_path: Path) -> None:
+        f = tmp_path / "clip.MP4"
+        f.write_text("")
+        c = classify_input(str(f))
+        assert c["is_media_file"] is True
+
+    @pytest.mark.parametrize("ext", [".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", ".m4a"])
+    def test_all_media_extensions(self, ext: str, tmp_path: Path) -> None:
+        f = tmp_path / f"clip{ext}"
+        f.write_text("")
+        assert classify_input(str(f))["is_media_file"] is True
+
+    @pytest.mark.parametrize("ext", [".txt", ".srt", ".vtt"])
+    def test_all_text_extensions(self, ext: str, tmp_path: Path) -> None:
+        f = tmp_path / f"tr{ext}"
+        f.write_text("")
+        c = classify_input(str(f))
+        assert c["is_text_file"] is True
+        assert c["is_media_file"] is False
+
+    def test_unknown_extension_is_neither_media_nor_text(self, tmp_path: Path) -> None:
+        p = tmp_path / "thing.pdf"
+        p.write_text("")
+        c = classify_input(str(p))
+        assert c["is_file"] is True
+        assert c["is_media_file"] is False
+        assert c["is_text_file"] is False
+
+    def test_invalid_path_raises(self) -> None:
+        with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
+            classify_input("not-a-url-nor-file")
+
+
 def _run_parser(argv: list[str], monkeypatch: pytest.MonkeyPatch) -> argparse.Namespace:
     monkeypatch.setattr("sys.argv", ["main.py", *argv])
     return parse_args()
 
 
 class TestParseArgs:
-    def test_url_input(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_url_input_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(["https://youtube.com/watch?v=abc"], monkeypatch)
-        assert ns.is_url
-        assert not ns.is_file
-        assert not ns.is_media_file
-        assert not ns.is_text_file
+        assert ns.input_path == ["https://youtube.com/watch?v=abc"]
 
-    def test_media_file_input_uppercase_ext(
+    def test_multiple_inputs_accepted(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        media = tmp_path / "clip.MP4"  # uppercase extension — must still match
-        media.write_text("")
-        ns = _run_parser([str(media)], monkeypatch)
-        assert ns.is_file
-        assert ns.is_media_file
-        assert not ns.is_text_file
-
-    @pytest.mark.parametrize("ext", [".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", ".m4a"])
-    def test_all_media_extensions(
-        self,
-        ext: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        f = tmp_path / f"clip{ext}"
+        f = tmp_path / "clip.mp4"
         f.write_text("")
-        ns = _run_parser([str(f)], monkeypatch)
-        assert ns.is_media_file
+        ns = _run_parser(["https://youtube.com/watch?v=abc", str(f)], monkeypatch)
+        assert len(ns.input_path) == 2
 
-    @pytest.mark.parametrize("ext", [".txt", ".srt", ".vtt"])
-    def test_all_text_extensions(
-        self,
-        ext: str,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        f = tmp_path / f"tr{ext}"
-        f.write_text("")
-        ns = _run_parser([str(f)], monkeypatch)
-        assert ns.is_text_file
-
-    def test_unknown_extension_is_neither(
-        self,
-        tmp_path: Path,
-        monkeypatch: pytest.MonkeyPatch,
-    ) -> None:
-        p = tmp_path / "thing.pdf"
-        p.write_text("")
-        ns = _run_parser([str(p)], monkeypatch)
-        assert ns.is_file
-        assert not ns.is_media_file
-        assert not ns.is_text_file
+    def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
+            _run_parser(["not-a-url-nor-file"], monkeypatch)
 
     def test_defaults(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
@@ -104,6 +117,7 @@ class TestParseArgs:
         assert ns.summarize is False
         assert ns.with_openai is False
         assert ns.debug is False
+        assert ns.dry_run is False
 
     def test_language_fr(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(["https://y.com/watch?v=x", "--language", "fr"], monkeypatch)
@@ -183,6 +197,14 @@ class TestParseArgs:
         ns = _run_parser(["https://y.com/watch?v=x", "--transcript-only"], monkeypatch)
         assert ns.transcript_only is True
 
+    def test_dry_run_default_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x"], monkeypatch)
+        assert ns.dry_run is False
+
+    def test_dry_run_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        ns = _run_parser(["https://y.com/watch?v=x", "--dry-run"], monkeypatch)
+        assert ns.dry_run is True
+
     def test_model_size_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         ns = _run_parser(
             ["https://y.com/watch?v=x", "--model-size", "medium"],
@@ -238,10 +260,6 @@ class TestParseArgs:
             monkeypatch,
         )
         assert ns.downloads_dir == target
-
-    def test_invalid_input_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        with pytest.raises(argparse.ArgumentTypeError, match="Invalid input path"):
-            _run_parser(["not-a-url-nor-file"], monkeypatch)
 
     def test_unsupported_language_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # argparse rejects invalid choice with SystemExit(2)

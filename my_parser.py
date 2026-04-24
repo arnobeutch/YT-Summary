@@ -4,6 +4,11 @@ import argparse
 from pathlib import Path
 from urllib.parse import urlparse
 
+_MEDIA_EXTENSIONS: frozenset[str] = frozenset(
+    {".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", ".m4a"}
+)
+_TEXT_EXTENSIONS: frozenset[str] = frozenset({".txt", ".srt", ".vtt"})
+
 
 def is_valid_url(url: str) -> bool:
     """Check if the given string is a valid URL."""
@@ -15,36 +20,41 @@ def is_valid_url(url: str) -> bool:
         return all([result.scheme, result.netloc])
 
 
-def parse_args() -> argparse.Namespace:
-    """Define then parse command-line arguments.
+def classify_input(path: str) -> dict[str, bool]:
+    """Return type flags for a single input path.
 
-    Returns:
-        argparse.Namespace: the arguments discovered as attributes and their values.
-
+    Raises :exc:`argparse.ArgumentTypeError` if the path is neither a
+    valid URL nor an existing local file.
     """
+    is_url = is_valid_url(path)
+    is_file = Path(path).is_file()
+    is_media_file = False
+    is_text_file = False
+    if is_file:
+        ext = Path(path).suffix.lower()
+        is_media_file = ext in _MEDIA_EXTENSIONS
+        is_text_file = ext in _TEXT_EXTENSIONS
+    if not is_file and not is_url:
+        err_msg = f"Invalid input path: {path}. Must be a valid URL or an existing local file."
+        raise argparse.ArgumentTypeError(err_msg)
+    return {
+        "is_url": is_url,
+        "is_file": is_file,
+        "is_media_file": is_media_file,
+        "is_text_file": is_text_file,
+    }
+
+
+def parse_args() -> argparse.Namespace:
+    """Define then parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description=(
-            "A python script to summarize YouTube videos, local videos or local audio,"
-            " or existing transcript (.txt)."
-            "\nThe script will output the video/audio text transcript"
-            "\nand a markdown-formatted summary of the video, if asked (default: no)."
-            "\nNote 1: The YT video must have either English or French subtitles."
-            "\n\tThe script will output an error message if no such transcript is found."
-            "\nNote 2: You must have an OpenAI API key to summarize, and credited tokens."
-            "\n\tDeclare your key in an environment variable OPENAI_API_KEY prior to running."
-            "\nUse the -h flag for help."
-        ),
-        usage=(
-            "python main.py <youtube_video_url | path to file> [optional_arguments]"
-            "\nExample: python main.py https://www.youtube.com/watch?v=VIDEO_ID"
-            "\nOr: python main.py <path to audio/video file> [optional_arguments]"
-            "\nExample: python main.py ./my_video.mp4"
-        ),
-        epilog="Be careful: summarizing burns OpenAI API tokens!",
+        description=("Summarize YouTube videos, local audio/video files, or existing transcripts."),
+        usage="uv run main.py <url | path> [url | path ...] [options]",
     )
     parser.add_argument(
         "input_path",
-        help="URL of the YouTube video or path to a local media / text file to summarize",
+        nargs="+",
+        help="YouTube URL(s) or path(s) to local media / text file(s)",
     )
     parser.add_argument(
         "-l",
@@ -166,6 +176,16 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        default=False,
+        help=(
+            "Print what the pipeline would do (input type, model, output dir) "
+            "without downloading, transcribing, or summarizing."
+        ),
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",
@@ -174,23 +194,10 @@ def parse_args() -> argparse.Namespace:
     )
 
     args = parser.parse_args()
-    args.is_url = is_valid_url(args.input_path)
-    args.is_file = Path(args.input_path).is_file()
-    args.is_media_file = False
-    args.is_text_file = False
-    if args.is_file:
-        media_extensions = {".mp4", ".mp3", ".wav", ".mkv", ".avi", ".webm", ".m4a"}
-        text_extensions = {".txt", ".srt", ".vtt"}
-        file_extension = Path(args.input_path).suffix.lower()
-        if file_extension in media_extensions:
-            args.is_media_file = True
-        elif file_extension in text_extensions:
-            args.is_text_file = True
 
-    if not args.is_file and not args.is_url:
-        err_msg = (
-            f"Invalid input path: {args.input_path}. Must be a valid URL or an existing local file."
-        )
-        raise argparse.ArgumentTypeError(err_msg)
+    # Validate every input path eagerly so the user gets an error before any
+    # slow work begins.
+    for path in args.input_path:
+        classify_input(path)  # raises ArgumentTypeError on invalid input
 
     return args

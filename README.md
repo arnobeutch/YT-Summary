@@ -14,15 +14,16 @@ Summarize YouTube videos, local audio/video files, or existing text transcripts.
 ## Usage
 
 ```bash
-uv run main.py <youtube_url | path/to/file> [options]
+uv run main.py <url | path> [url | path ...] [options]
 ```
 
-Examples:
+Multiple inputs are processed sequentially in one invocation:
 
 ```bash
 uv run main.py https://www.youtube.com/watch?v=VIDEO_ID --summarize --with-openai
 uv run main.py ./my_meeting.mp4 --diarize --summarize
 uv run main.py ./existing_transcript.txt --summarize
+uv run main.py https://youtu.be/X https://youtu.be/Y ./local.mp4  # batch
 ```
 
 ### Options
@@ -42,6 +43,7 @@ uv run main.py ./existing_transcript.txt --summarize
 | `--force` | Re-download audio and re-transcribe even when a cached `.wav` or transcript already exists. |
 | `--subtitles` | Also write `.srt` and `.vtt` subtitle files alongside the `.txt` transcript (whisper transcription only — YT captions and diarized output don't carry per-cue timestamps). |
 | `--transcript-only` | Stop after writing transcript (and subtitles); skip summarization. |
+| `--dry-run` | Print what the pipeline would do (input type, model, output dir) without doing any work. |
 | `-d`, `--debug` | Enable DEBUG-level logging (default: False). |
 
 ### Caching
